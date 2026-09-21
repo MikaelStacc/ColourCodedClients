@@ -68,27 +68,26 @@
     if (label.textContent !== current.label) label.textContent = current.label;
   }
 
-  function initialsFor(label) {
-    const letters = label
-      .split(/[\s\-_/]+/)
-      .map(function (word) { return word.replace(/[^0-9a-z]/gi, '').charAt(0); })
-      .filter(Boolean);
-    if (letters.length >= 2) return (letters[0] + letters[1]).toUpperCase();
-    const fallback = label.replace(/[^0-9a-z]/gi, '').slice(0, 2);
-    return (fallback || '??').toUpperCase();
-  }
-
   function escapeXml(value) {
     return value.replace(/[<>&"']/g, function (ch) { return XML_ESCAPES[ch]; });
   }
 
+  /** Font size and baseline per character count, so 1–3 letters all fill the tile. */
+  const FAVICON_METRICS = {
+    1: { size: 21, baseline: 23.5 },
+    2: { size: 17, baseline: 22.5 },
+    3: { size: 12.5, baseline: 21 }
+  };
+
   function faviconDataUri() {
-    const text = escapeXml(initialsFor(current.label));
+    const raw = current.initials || '?';
+    const metrics = FAVICON_METRICS[raw.length] || FAVICON_METRICS[3];
     const svg =
       '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">' +
       '<rect width="32" height="32" rx="7" fill="' + current.color + '"/>' +
-      '<text x="16" y="22.5" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif"' +
-      ' font-size="17" font-weight="700" fill="' + current.textColor + '">' + text + '</text>' +
+      '<text x="16" y="' + metrics.baseline + '" text-anchor="middle"' +
+      ' font-family="Segoe UI, Arial, sans-serif" font-size="' + metrics.size + '"' +
+      ' font-weight="700" fill="' + current.textColor + '">' + escapeXml(raw) + '</text>' +
       '</svg>';
     return 'data:image/svg+xml,' + encodeURIComponent(svg);
   }

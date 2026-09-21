@@ -13,7 +13,8 @@ require('../src/lib/rules.js');
 
 const {
   resolveUrl, matchingRules, normalizeState, normalizeRule, compilePattern, isValidPattern,
-  suggestPattern, clampLabelSize, splitAlternatives, DEFAULT_SETTINGS, LABEL_POSITIONS, LABEL_SIZE_RANGE,
+  suggestPattern, clampLabelSize, splitAlternatives, deriveInitials, MAX_INITIALS,
+  DEFAULT_SETTINGS, LABEL_POSITIONS, LABEL_SIZE_RANGE,
   SCHEMA_VERSION
 } = globalThis.CCCRules;
 const { PALETTE, colorForKey, normalizeHex, readableTextOn, nearestTabGroupColor } =
@@ -238,6 +239,46 @@ test('suggestPattern pre-fills something that matches the tab it came from', () 
 
   assert.equal(suggestPattern('https://example.com'), 'example.com');
   assert.equal(suggestPattern('not a url'), '');
+});
+
+/* --------------------------------------------------------------- favicon letters */
+
+test('favicon letters derive from the label when the rule sets none', () => {
+  assert.equal(deriveInitials('Acme Bank PROD'), 'AB');
+  assert.equal(deriveInitials('Brage'), 'BR');
+  assert.equal(deriveInitials('core.leabank.no'), 'CL');
+  assert.equal(deriveInitials('1'), '1');
+  assert.equal(deriveInitials(''), '?', 'never empty, or the favicon is a blank square');
+});
+
+test('a rule can override the favicon letters', () => {
+  const state = stateWith([
+    { pattern: 'a.com', label: 'Acme Bank', initials: 'ACM', color: '#123456' }
+  ]);
+  const resolved = resolveUrl(state, 'https://a.com');
+  assert.equal(resolved.initials, 'ACM');
+  assert.equal(resolved.customInitials, true);
+});
+
+test('clearing the letters falls back to the label', () => {
+  const state = stateWith([
+    { pattern: 'b.com', label: 'Brage Systems', initials: '', color: '#123456' }
+  ]);
+  const resolved = resolveUrl(state, 'https://b.com');
+  assert.equal(resolved.initials, 'BS');
+  assert.equal(resolved.customInitials, false);
+});
+
+test('letters are trimmed to what fits a 16px favicon', () => {
+  assert.equal(normalizeRule({ pattern: 'x', initials: 'TOOLONG' }).initials, 'TOO');
+  assert.equal(normalizeRule({ pattern: 'x', initials: '  AB  ' }).initials, 'AB');
+  assert.equal(normalizeRule({ pattern: 'x' }).initials, '', 'absent means derive');
+  assert.equal(MAX_INITIALS, 3);
+});
+
+test('letters survive export and import unchanged', () => {
+  const rule = normalizeRule({ pattern: 'a.com', label: 'Acme', initials: 'AC' });
+  assert.equal(normalizeRule(JSON.parse(JSON.stringify(rule))).initials, 'AC');
 });
 
 /* ------------------------------------------------------------- label appearance */

@@ -27,8 +27,6 @@ so put the specific rules above the general ones. Three matching modes:
 | Wildcard | `*dynamics.com*/Production*` | **the whole URL**, with `*` spanning anything |
 | Regular expression | `dynamics\.com/.+/Prod` | your own regex, case-insensitive |
 
-Separate several patterns with `||` to cover more than one site from a single rule.
-
 Wildcard is anchored at both ends, which is the easy mistake: `example.com` matches
 nothing, because the real URL has `https://` in front of it. Write `*example.com*`. The
 popup wraps the pattern for you when you switch to wildcard mode, and says so when a
@@ -58,6 +56,11 @@ wrapping. `||` works in *contains* and *wildcard*; *regex* already has `|`.
 The label's position (top/bottom × left/centre/right) and size are set in options, with
 a live preview. Tick **Bold** on a rule for a double-width frame on the environments
 where a mistake costs the most.
+
+**Favicon letters** are per rule, up to three characters, shared with the toolbar badge.
+Leave the field blank and they follow the label — `core.leabank.no` gives `CL`, `Acme
+Bank PROD` gives `AB` — or set them explicitly when the initials collide. The swatch in
+the popup previews them live.
 
 ## What Chrome does not allow
 
@@ -90,56 +93,18 @@ Click the toolbar icon on any page:
   than silently offering a duplicate rule.
 - **Nothing covers it** — an add-rule form with the pattern pre-filled from the URL and
   a live verdict telling you whether it matches as you type.
+- **The page can never be colored** (a `chrome://` page, say) — the rule list is still
+  one click away.
 
 A banner at the top always reports what the page is *actually* showing, obtained by
-pinging the content script rather than inferred from the rules.
+pinging the content script rather than inferred from the rules. Every state ends with
+an **All rules** link, so the toolbar button is never a dead end.
 
 The options page (right-click the icon → Options) has the full rule list with
 reordering, a URL tester, the label controls, and JSON export/import for sharing one
 scheme across the team.
 
-## Shipping to the team
 
-```
-npm run package   # -> dist/color-coded-clients-<version>.zip
-```
-
-Bump `version` in `manifest.json` before every upload; the store rejects a repeat.
-
-**Chrome Web Store, Unlisted** is the recommended route. One-time $5 developer
-registration, upload the zip, set visibility to **Unlisted**: it never appears in
-search, only people with the link can install, and everyone auto-updates when you
-upload a new version. Review usually takes hours to a few days.
-
-Two things the review will ask about:
-
-- **`<all_urls>`.** You must justify it ("user-defined URL rules can target any site").
-  It also makes the install prompt read *"Read and change all your data on all
-  websites"*. See Permissions below.
-- **Privacy disclosure.** Nothing is collected or transmitted; state that. There is no
-  remote code, no analytics, and no network access anywhere in the extension.
-
-| Alternative | Good for | Cost |
-| --- | --- | --- |
-| Workspace private publish | Restricting to one domain rather than a link | Needs Google Workspace |
-| Force-install by policy (Intune, Group Policy) | Nobody installs anything; IT pushes it | Needs IT, and is the only way a self-hosted CRX can install |
-| Load unpacked from this repo | Two or three people | Free, but no auto-update and a dev-mode warning on every Chrome start |
-
-A self-hosted `.crx` on a file share does **not** work on its own — Chrome blocks CRX
-installs that did not come from the Web Store unless an enterprise policy allows them.
-
-The same zip installs on Edge; the Edge Add-ons store is a separate, free submission.
-
-## Permissions
-
-`<all_urls>`, because a rule can name any URL. The content script reads nothing off the
-page — it only looks at `location.href` and appends its own nodes — but the permission
-is broad by necessity, which is worth knowing given these tabs hold customer data. That
-is also the argument for running this from source rather than installing a third-party
-marker that auto-updates.
-
-To shrink it, narrow `host_permissions` in `manifest.json` to the hosts you actually
-color and move the rest to `optional_host_permissions`.
 
 ## Layout
 
@@ -153,7 +118,7 @@ src/popup.*            Edit the current page's rule, re-enable one, or add one
 src/options.*          Rule list, URL tester, label controls, export/import
 tools/make-icons.ps1   Regenerates icons/*.png
 tools/package.ps1      Builds the Web Store zip
-tests/rules.test.js    25 tests over matching, resolution and settings
+tests/rules.test.js    35 tests over matching, resolution and settings
 ```
 
 The `src/lib/*.js` files are plain scripts that attach to `globalThis`, so the same file

@@ -7,8 +7,8 @@
 
   const {
     loadState, saveState, updateSettings, addRule, updateRule, deleteRule, moveRule,
-    resolveUrl, compilePattern, normalizeRule, clampLabelSize,
-    MATCH_MODES, DEFAULT_MODE, DEFAULT_SETTINGS, LABEL_POSITIONS
+    resolveUrl, compilePattern, normalizeRule, clampLabelSize, deriveInitials,
+    MATCH_MODES, DEFAULT_MODE, DEFAULT_SETTINGS, LABEL_POSITIONS, MAX_INITIALS
   } = globalThis.CCCRules;
   const { normalizeHex, colorForKey } = globalThis.CCCPalette;
 
@@ -163,7 +163,19 @@
       };
 
       const label = element('input', { type: 'text', value: rule.label });
-      label.onchange = function () { save({ label: label.value.trim() || rule.pattern }); };
+      label.onchange = function () {
+        initials.placeholder = deriveInitials(label.value.trim() || rule.pattern);
+        save({ label: label.value.trim() || rule.pattern });
+      };
+
+      const initials = element('input', {
+        type: 'text',
+        value: rule.initials || '',
+        placeholder: deriveInitials(rule.label),
+        maxLength: MAX_INITIALS,
+        title: 'Favicon and badge letters. Blank follows the label.'
+      });
+      initials.onchange = function () { save({ initials: initials.value.trim() }); };
 
       const emphasize = element('input', { type: 'checkbox', checked: Boolean(rule.emphasize) });
       emphasize.onchange = function () { save({ emphasize: emphasize.checked }); };
@@ -197,7 +209,7 @@
       }
 
       row.append(
-        cell(color), cell(mode), cell(pattern), cell(label),
+        cell(color), cell(mode), cell(pattern), cell(label), cell(initials),
         cell(emphasize), cell(enabled), cell(null, 'order')
       );
       row.lastChild.append(up, down, remove);

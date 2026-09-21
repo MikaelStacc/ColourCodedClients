@@ -73,12 +73,20 @@ h1 { font-size: 17px; margin: 0 0 4px; }
 h2 { font-size: 13px; margin: 24px 0 8px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
 p.hint { color: var(--text-muted); margin: 0 0 14px; }
 
+/* Doubles as a live favicon preview, so it carries the letters too. */
 .swatch {
   width: 34px;
   height: 34px;
   border-radius: 8px;
   border: 1px solid rgba(0, 0, 0, .18);
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -.02em;
+  overflow: hidden;
 }
 
 .identity { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }

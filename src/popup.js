@@ -15,7 +15,8 @@
 
   const {
     loadState, resolveUrl, matchingRules, suggestPattern, addRule, updateRule,
-    compilePattern, splitAlternatives, MATCH_MODES, DEFAULT_MODE, ALTERNATION
+    compilePattern, splitAlternatives, deriveInitials,
+    MATCH_MODES, DEFAULT_MODE, ALTERNATION, MAX_INITIALS
   } = globalThis.CCCRules;
   const { PALETTE, normalizeHex, colorForKey, readableTextOn } = globalThis.CCCPalette;
 
@@ -60,6 +61,20 @@
     } catch (error) {
       return null;
     }
+  }
+
+  /**
+   * Every popup state ends with this. The rule list has to be reachable from the
+   * toolbar button no matter what the current tab is — including a chrome:// page that
+   * can never be colored, which is otherwise a dead end.
+   */
+  function footer(leading) {
+    const optionsButton = element('button', { className: 'link', textContent: 'All rules' });
+    optionsButton.addEventListener('click', function () { chrome.runtime.openOptionsPage(); });
+    const row = element('div', { className: 'row' });
+    for (const node of leading || []) row.append(node);
+    row.append(element('span', { className: 'grow' }), optionsButton);
+    return row;
   }
 
   function banner(kind, text, actionLabel, onAction) {
@@ -153,12 +168,20 @@
     ]));
 
     const labelInput = element('input', { type: 'text', value: resolved.label, autocomplete: 'off' });
+    const initialsInput = element('input', {
+      type: 'text',
+      value: resolved.customInitials ? resolved.initials : '',
+      placeholder: deriveInitials(resolved.label),
+      maxLength: MAX_INITIALS,
+      autocomplete: 'off'
+    });
     const colorInput = element('input', { type: 'color', value: resolved.color });
     const enabledInput = element('input', {
       type: 'checkbox', id: 'enabled', checked: resolved.enabled
     });
 
     app.append(field('Label', labelInput));
+    app.append(field('Favicon letters — blank follows the label', initialsInput));
     const palette = buildPalette(colorInput, function () { paint(); save(); });
     app.append(palette.grid, field('Custom color', colorInput));
 
@@ -169,22 +192,24 @@
     app.append(toggle);
 
     const status = element('span', { className: 'status' });
-    const optionsButton = element('button', { className: 'link', textContent: 'All rules' });
-    optionsButton.addEventListener('click', function () { chrome.runtime.openOptionsPage(); });
-    app.append(element('div', { className: 'row' }, [
-      optionsButton, element('span', { className: 'grow' }), status
-    ]));
+    app.append(footer([status]));
 
+    /** The swatch doubles as a favicon preview, letters and all. */
     function paint() {
       const color = normalizeHex(colorInput.value) || resolved.color;
+      const label = labelInput.value.trim() || resolved.label;
+      initialsInput.placeholder = deriveInitials(label);
       swatch.style.background = color;
-      title.textContent = labelInput.value || resolved.label;
+      swatch.style.color = readableTextOn(color);
+      swatch.textContent = initialsInput.value.trim() || deriveInitials(label);
+      title.textContent = label;
       palette.repaint();
     }
 
     const save = debounce(async function () {
       await updateRule(resolved.key, {
         label: labelInput.value.trim() || resolved.label,
+        initials: initialsInput.value.trim(),
         color: normalizeHex(colorInput.value) || resolved.color,
         enabled: enabledInput.checked
       });
@@ -193,6 +218,7 @@
     }, 250);
 
     labelInput.addEventListener('input', function () { paint(); save(); });
+    initialsInput.addEventListener('input', function () { paint(); save(); });
     colorInput.addEventListener('input', function () { paint(); save(); });
     // Switching a rule off changes which state the popup belongs in, so re-render.
     enabledInput.addEventListener('change', async function () {
@@ -238,12 +264,7 @@
       render();
     });
 
-    const optionsButton = element('button', { className: 'link', textContent: 'All rules' });
-    optionsButton.addEventListener('click', function () { chrome.runtime.openOptionsPage(); });
-
-    app.append(element('div', { className: 'row' }, [
-      enableButton, element('span', { className: 'grow' }), optionsButton
-    ]));
+    app.append(footer([enableButton]));
   }
 
   /* ------------------------------------------------------------ no-match state */
@@ -279,6 +300,12 @@
       type: 'text', value: suggested, autocomplete: 'off', spellcheck: false
     });
     const labelInput = element('input', { type: 'text', value: host, autocomplete: 'off' });
+    const initialsInput = element('input', {
+      type: 'text',
+      placeholder: deriveInitials(host),
+      maxLength: MAX_INITIALS,
+      autocomplete: 'off'
+    });
     const colorInput = element('input', { type: 'color', value: colorForKey(suggested || host) });
 
     app.append(field('Match when', modeSelect));
@@ -286,6 +313,7 @@
     const verdict = element('div', { className: 'banner', style: 'margin:-2px 0 12px' });
     app.append(verdict);
     app.append(field('Label', labelInput));
+    app.append(field('Favicon letters — blank follows the label', initialsInput));
     const palette = buildPalette(colorInput, paint);
     app.append(palette.grid, field('Custom color', colorInput));
 
@@ -298,14 +326,15 @@
 
     const addButton = element('button', { className: 'action', textContent: 'Add rule' });
     const status = element('span', { className: 'status' });
-    app.append(element('div', { className: 'row' }, [
-      addButton, element('span', { className: 'grow' }), status
-    ]));
+    app.append(footer([addButton, status]));
 
     function paint() {
       const color = normalizeHex(colorInput.value) || '#777777';
+      const label = labelInput.value.trim() || host;
+      initialsInput.placeholder = deriveInitials(label);
       swatch.style.background = color;
       swatch.style.color = readableTextOn(color);
+      swatch.textContent = initialsInput.value.trim() || deriveInitials(label);
       palette.repaint();
     }
 
@@ -342,6 +371,8 @@
     }
 
     patternInput.addEventListener('input', validate);
+    labelInput.addEventListener('input', paint);
+    initialsInput.addEventListener('input', paint);
     colorInput.addEventListener('input', paint);
     modeSelect.addEventListener('change', function () {
       patternInput.value = adaptPatternToMode(patternInput.value, modeSelect.value);
@@ -357,6 +388,7 @@
         pattern,
         mode: modeSelect.value,
         label: labelInput.value.trim() || pattern,
+        initials: initialsInput.value.trim(),
         color: normalizeHex(colorInput.value),
         emphasize: emphasizeInput.checked,
         enabled: true
@@ -376,10 +408,10 @@
   async function render() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.url || !/^https?:/i.test(tab.url)) {
-      app.replaceChildren(element('p', {
-        className: 'empty',
-        textContent: 'Chrome pages cannot be colored. Open a normal site first.'
-      }));
+      app.replaceChildren();
+      app.append(banner('warn', 'This kind of page cannot be colored — Chrome blocks '
+        + 'extensions on its own pages. Your rules are still editable.'));
+      app.append(footer());
       return;
     }
 

@@ -20,13 +20,9 @@ function drawIcon(size, color) {
   return ctx.getImageData(0, 0, size, size);
 }
 
-function badgeTextFor(label) {
-  const letters = label
-    .split(/[\s\-_/]+/)
-    .map((word) => word.replace(/[^0-9a-z]/gi, '').charAt(0))
-    .filter(Boolean)
-    .join('');
-  return (letters || label.replace(/[^0-9a-z]/gi, '')).slice(0, 3).toUpperCase();
+/** The same letters as the favicon, so the toolbar and the tab strip agree. */
+function badgeTextFor(resolved) {
+  return (resolved.initials || '').slice(0, 3);
 }
 
 async function paintAction(tabId, resolved, settings) {
@@ -46,7 +42,7 @@ async function paintAction(tabId, resolved, settings) {
   await chrome.action.setBadgeTextColor({ tabId, color: resolved.textColor });
   await chrome.action.setBadgeText({
     tabId,
-    text: settings.showBadge ? badgeTextFor(resolved.label) : ''
+    text: settings.showBadge ? badgeTextFor(resolved) : ''
   });
 
   await chrome.action.setTitle({
