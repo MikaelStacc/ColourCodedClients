@@ -42,12 +42,37 @@
     return wrap;
   }
 
+  const pendingFlushes = [];
+
+  function flushAll() {
+    for (const flush of pendingFlushes) flush();
+  }
+
+  // The popup is destroyed the moment it loses focus, so anything still waiting on a
+  // debounce timer has to be written out now or it is lost.
+  addEventListener('pagehide', flushAll);
+  addEventListener('blur', flushAll);
+
+  /**
+   * Debounce with a flush, so a pending save can be forced out when the popup closes.
+   */
   function debounce(fn, delay) {
     let timer = null;
-    return function () {
+    const wrapped = function () {
       clearTimeout(timer);
-      timer = setTimeout(fn, delay);
+      timer = setTimeout(function () {
+        timer = null;
+        fn();
+      }, delay);
     };
+    wrapped.flush = function () {
+      if (timer === null) return;
+      clearTimeout(timer);
+      timer = null;
+      fn();
+    };
+    pendingFlushes.push(wrapped.flush);
+    return wrapped;
   }
 
   function wait(ms) {
@@ -207,6 +232,16 @@
       htmlFor: 'enabled', textContent: 'Rule is on'
     }));
     app.append(toggle);
+
+    // What the page has actually applied, straight from the content script. If an edit
+    // here does not change this line, the write is not reaching the page.
+    const applied = element('div', { className: 'status' });
+    if (live && live.applied) {
+      applied.textContent = 'On the page now: ' + live.label + ', letters ' +
+        (live.initials || '?') + ', label ' +
+        (live.showLabel ? live.labelPosition + ' at ' + live.labelSize + 'px' : 'off');
+    }
+    app.append(applied);
 
     const status = element('span', { className: 'status' });
     app.append(footer([status]));

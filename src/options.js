@@ -44,10 +44,25 @@
   let latestState = null;
   let flashTimer = null;
 
-  function flash(message) {
+  function flash(message, kind) {
     status.textContent = message;
+    status.className = kind === 'bad' ? 'status bad' : 'status';
     clearTimeout(flashTimer);
+    // A failure stays on screen; only the reassuring message fades.
+    if (kind === 'bad') return;
     flashTimer = setTimeout(function () { status.textContent = ''; }, 2000);
+  }
+
+  /** Runs a save and reports it, so a rejected write cannot look like a no-op. */
+  async function persist(action) {
+    try {
+      const result = await action();
+      flash('Saved');
+      return result;
+    } catch (error) {
+      flash(error.message || 'Could not save', 'bad');
+      return null;
+    }
   }
 
   function element(tag, props, children) {
@@ -97,15 +112,13 @@
     }
   }
 
-  const saveLabelSize = debounce(async function () {
-    await updateSettings({ labelSize: clampLabelSize(labelSize.value) });
-    flash('Saved');
-  }, 250);
+  const saveLabelSize = debounce(function () {
+    persist(function () { return updateSettings({ labelSize: clampLabelSize(labelSize.value) }); });
+  }, 300);
 
-  labelPosition.onchange = async function () {
+  labelPosition.onchange = function () {
     paintPreview();
-    await updateSettings({ labelPosition: labelPosition.value });
-    flash('Saved');
+    persist(function () { return updateSettings({ labelPosition: labelPosition.value }); });
   };
   labelSize.oninput = function () { paintPreview(); saveLabelSize(); };
 
@@ -115,9 +128,8 @@
     for (const name of BOOLEAN_SETTINGS) {
       const input = document.getElementById(name);
       input.checked = Boolean(settings[name]);
-      input.onchange = async function () {
-        await updateSettings({ [name]: input.checked });
-        flash('Saved');
+      input.onchange = function () {
+        persist(function () { return updateSettings({ [name]: input.checked }); });
       };
     }
 
@@ -126,14 +138,13 @@
 
     const width = document.getElementById('frameWidth');
     width.value = String(settings.frameWidth);
-    width.onchange = async function () {
+    width.onchange = function () {
       const parsed = parseInt(width.value, 10);
       const clamped = Number.isFinite(parsed)
         ? Math.min(40, Math.max(1, parsed))
         : DEFAULT_SETTINGS.frameWidth;
       width.value = String(clamped);
-      await updateSettings({ frameWidth: clamped });
-      flash('Saved');
+      persist(function () { return updateSettings({ frameWidth: clamped }); });
     };
   }
 
@@ -206,8 +217,9 @@
 
       async function save(patch) {
         if (!validate()) return;
-        latestState = await updateRule(rule.id, patch);
-        flash('Saved');
+        const next = await persist(function () { return updateRule(rule.id, patch); });
+        if (!next) return;
+        latestState = next;
         paintPreview();
         runTest();
       }

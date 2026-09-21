@@ -222,8 +222,18 @@
     return normalizeState(stored[STORAGE_KEY]);
   }
 
+  /**
+   * chrome.storage.sync rejects on its quotas: 8KB for this single item, 120 writes a
+   * minute, 1800 an hour. Those rejections are otherwise invisible in an async event
+   * handler, which turns a failed write into "the setting silently did nothing".
+   */
   async function saveState(state) {
-    await chrome.storage.sync.set({ [STORAGE_KEY]: state });
+    try {
+      await chrome.storage.sync.set({ [STORAGE_KEY]: state });
+    } catch (error) {
+      const detail = error && error.message ? error.message : String(error);
+      throw new Error('Could not save: ' + detail);
+    }
   }
 
   async function updateSettings(patch) {

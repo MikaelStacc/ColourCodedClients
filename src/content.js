@@ -107,16 +107,20 @@
       link.remove();
     });
 
-    let link = document.getElementById('ccc-favicon');
-    if (!link) {
-      link = document.createElement('link');
-      link.id = 'ccc-favicon';
-      link.rel = 'icon';
-      link.type = 'image/svg+xml';
-      document.head.appendChild(link);
-    }
     const href = faviconDataUri();
-    if (link.getAttribute('href') !== href) link.setAttribute('href', href);
+    const existing = document.getElementById('ccc-favicon');
+    if (existing && existing.getAttribute('href') === href) return;
+
+    // Chrome does not reliably re-read a favicon when only the href attribute changes
+    // on a link that is already in the document, so the node is replaced rather than
+    // mutated. Without this, editing a rule's letters changes nothing in the tab strip.
+    if (existing) existing.remove();
+    const link = document.createElement('link');
+    link.id = 'ccc-favicon';
+    link.rel = 'icon';
+    link.type = 'image/svg+xml';
+    link.setAttribute('href', href);
+    document.head.appendChild(link);
   }
 
   function restoreFavicon() {
@@ -225,6 +229,7 @@
       color: current ? current.color : '',
       // Reported separately from the settings so the popup can tell "switched off"
       // apart from "switched on but the element never made it into the page".
+      initials: current ? current.initials : '',
       labelShown: Boolean(document.getElementById('ccc-label')),
       showLabel: Boolean(state && state.settings.showLabel),
       labelPosition: state ? state.settings.labelPosition : '',

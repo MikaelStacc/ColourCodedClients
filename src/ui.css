@@ -161,6 +161,7 @@ td.key { color: var(--text-muted); font-family: ui-monospace, Consolas, monospac
 
 .empty { color: var(--text-muted); padding: 16px 0; }
 .status { color: var(--text-muted); font-size: 11px; min-height: 16px; }
+.status.bad { color: var(--danger); font-weight: 600; }
 
 /* Verdict banners. These carry the answer to "did my rule take effect", so they are
    deliberately loud rather than a muted line of helper text. */
