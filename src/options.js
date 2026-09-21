@@ -45,9 +45,6 @@
   const frameWidthValue = document.getElementById('frameWidthValue');
   const previewFrame = document.getElementById('previewFrame');
   const previewLabel = document.getElementById('previewLabel');
-  const diagnostics = document.getElementById('diagnostics');
-  const diagnosticsStatus = document.getElementById('diagnosticsStatus');
-
   // Stamped from the manifest so a stale, un-reloaded copy of the extension is obvious
   // rather than being mistaken for a setting that will not save.
   document.getElementById('version').textContent =
@@ -318,27 +315,12 @@
 
   /* --------------------------------------------------------------------- entry */
 
-  /** Reads storage directly, bypassing this page's own in-memory copy. */
-  async function showDiagnostics() {
-    const raw = await chrome.storage.sync.get(null);
-    diagnostics.value = JSON.stringify(raw, null, 2);
-    try {
-      const used = await chrome.storage.sync.getBytesInUse(null);
-      diagnosticsStatus.textContent = used + ' bytes used of the 8192 allowed per item';
-    } catch (error) {
-      diagnosticsStatus.textContent = '';
-    }
-  }
-
-  document.getElementById('refreshDiagnostics').onclick = showDiagnostics;
-
   async function refresh() {
     latestState = await loadState();
     renderSettings(latestState.settings);
     renderRules(latestState.rules);
     paintPreview();
     runTest();
-    showDiagnostics();
   }
 
   refresh();
