@@ -21,7 +21,6 @@
         <th>Pattern</th>
         <th style="width:170px">Label</th>
         <th style="width:64px" title="Favicon and badge letters, up to 3. Blank resets from the label.">Letters</th>
-        <th style="width:44px" title="Extra thick frame">Bold</th>
         <th style="width:38px">On</th>
         <th style="width:96px"></th>
       </tr>
@@ -43,12 +42,16 @@
   <p class="status" id="testResult"></p>
 
   <h2>Frame and label</h2>
-  <div class="toggle">
-    <input type="checkbox" id="showLabel">
-    <label for="showLabel">Show the label on the page</label>
-  </div>
-  <div class="row" style="align-items:flex-start; gap:18px; margin-bottom:6px">
+  <p class="hint">These belong to one rule, so a customer's production can shout while a
+    sandbox stays quiet. Pick the rule, then set how loudly it announces itself.</p>
+  <label class="field" style="max-width:340px"><span>Rule</span>
+    <select id="appearanceRule"></select></label>
+  <div class="row" style="align-items:flex-start; gap:18px; margin-bottom:6px" id="appearanceControls">
     <div style="width:210px">
+      <div class="toggle">
+        <input type="checkbox" id="showLabel">
+        <label for="showLabel">Show label on the page</label>
+      </div>
       <label class="field"><span>Frame width <b id="frameWidthValue"></b></span>
         <input type="range" id="frameWidth" min="1" max="15" step="1"></label>
       <label class="field"><span>Label size <b id="labelSizeValue"></b></span>
@@ -58,12 +61,11 @@
     </div>
     <div class="preview-box">
       <div class="preview-frame" id="previewFrame">
-        <span class="preview-label" id="previewLabel">Customer A</span>
+        <span class="preview-label" id="previewLabel">Example</span>
       </div>
-      <p class="hint" style="margin:6px 0 0">A rule marked <b>Bold</b> draws its frame at
-        twice this width.</p>
     </div>
   </div>
+  <p class="empty" id="appearanceEmpty" hidden>Add a rule first.</p>
 
   <h2>Other signals</h2>
   <div class="toggle">

@@ -11,10 +11,11 @@
     deriveInitials, applyPlacement,
     MATCH_MODES, DEFAULT_MODE, LABEL_POSITIONS, MAX_INITIALS
   } = globalThis.CCCRules;
-  const { normalizeHex, colorForKey } = globalThis.CCCPalette;
+  const { normalizeHex, colorForKey, readableTextOn } = globalThis.CCCPalette;
 
+  // showLabel lives on the rule now; only genuinely browser-wide toggles remain here.
   const BOOLEAN_SETTINGS = [
-    'enabled', 'showLabel', 'showFavicon', 'showTitlePrefix', 'showBadge', 'useTabGroups'
+    'enabled', 'showFavicon', 'showTitlePrefix', 'showBadge', 'useTabGroups'
   ];
 
   const MODE_LABELS = {
@@ -45,6 +46,13 @@
   const frameWidthValue = document.getElementById('frameWidthValue');
   const previewFrame = document.getElementById('previewFrame');
   const previewLabel = document.getElementById('previewLabel');
+  const appearanceRule = document.getElementById('appearanceRule');
+  const appearanceControls = document.getElementById('appearanceControls');
+  const appearanceEmpty = document.getElementById('appearanceEmpty');
+  const showLabel = document.getElementById('showLabel');
+
+  /** Which rule the appearance controls are editing; survives a re-render. */
+  let selectedRuleId = null;
   // Stamped from the manifest so a stale, un-reloaded copy of the extension is obvious
   // rather than being mistaken for a setting that will not save.
   document.getElementById('version').textContent =
@@ -102,9 +110,17 @@
     }));
   }
 
+  function selectedRule() {
+    if (!latestState) return null;
+    return latestState.rules.find(function (rule) { return rule.id === selectedRuleId; }) || null;
+  }
+
   /**
-   * Real pixel size and the same placement function the page uses, so an oversized or
+   * Real pixel sizes and the same placement function the page uses, so an oversized or
    * badly placed label looks that way here before it lands on a customer's system.
+   *
+   * Now that appearance belongs to a rule, the preview wears that rule's colour and
+   * name: it shows exactly what it configures, and nothing it does not.
    */
   function paintPreview() {
     frameWidthValue.textContent = frameWidth.value + 'px';
@@ -115,33 +131,66 @@
     applyPlacement(previewLabel, labelPosition.value, 0);
     previewLabel.style.fontSize = labelSize.value + 'px';
     previewFrame.style.borderWidth = frameWidth.value + 'px';
+    previewLabel.hidden = !showLabel.checked;
 
-    const firstRule = latestState && latestState.rules.find(function (rule) {
-      return rule.enabled !== false;
-    });
-    if (firstRule) {
-      previewLabel.textContent = firstRule.label;
-      previewLabel.style.background = firstRule.color;
-      previewLabel.style.color = globalThis.CCCPalette.readableTextOn(firstRule.color);
-      previewFrame.style.borderColor = firstRule.color;
-    }
+    const rule = selectedRule();
+    if (!rule) return;
+    previewLabel.textContent = rule.label;
+    previewLabel.style.background = rule.color;
+    previewLabel.style.color = readableTextOn(rule.color);
+    previewFrame.style.borderColor = rule.color;
   }
 
-  const saveLabelSize = debounce(function () {
-    persist(function () { return updateSettings({ labelSize: clampLabelSize(labelSize.value) }); });
+  /** Writes the appearance controls back to the rule they belong to. */
+  const saveAppearance = debounce(function () {
+    const rule = selectedRule();
+    if (!rule) return;
+    persist(function () {
+      return updateRule(rule.id, {
+        frameWidth: clampFrameWidth(frameWidth.value),
+        labelSize: clampLabelSize(labelSize.value),
+        labelPosition: labelPosition.value,
+        showLabel: showLabel.checked
+      });
+    }).then(function (next) {
+      if (next) latestState = next;
+    });
   }, 300);
 
-  labelPosition.onchange = function () {
+  function renderAppearance(rules) {
+    const hasRules = rules.length > 0;
+    appearanceControls.hidden = !hasRules;
+    appearanceRule.hidden = !hasRules;
+    appearanceEmpty.hidden = hasRules;
+    if (!hasRules) return;
+
+    if (!rules.some(function (rule) { return rule.id === selectedRuleId; })) {
+      selectedRuleId = rules[0].id;
+    }
+
+    appearanceRule.replaceChildren();
+    for (const rule of rules) {
+      appearanceRule.append(element('option', { value: rule.id, textContent: rule.label }));
+    }
+    appearanceRule.value = selectedRuleId;
+
+    const rule = selectedRule();
+    frameWidth.value = String(rule.frameWidth);
+    labelSize.value = String(rule.labelSize);
+    labelPosition.value = rule.labelPosition;
+    showLabel.checked = rule.showLabel !== false;
     paintPreview();
-    persist(function () { return updateSettings({ labelPosition: labelPosition.value }); });
+  }
+
+  appearanceRule.onchange = function () {
+    selectedRuleId = appearanceRule.value;
+    renderAppearance(latestState.rules);
   };
-  labelSize.oninput = function () { paintPreview(); saveLabelSize(); };
+  showLabel.onchange = function () { paintPreview(); saveAppearance(); };
 
-  const saveFrameWidth = debounce(function () {
-    persist(function () { return updateSettings({ frameWidth: clampFrameWidth(frameWidth.value) }); });
-  }, 300);
-
-  frameWidth.oninput = function () { paintPreview(); saveFrameWidth(); };
+  labelPosition.onchange = function () { paintPreview(); saveAppearance(); };
+  labelSize.oninput = function () { paintPreview(); saveAppearance(); };
+  frameWidth.oninput = function () { paintPreview(); saveAppearance(); };
 
   /* ------------------------------------------------------------------ settings */
 
@@ -154,9 +203,6 @@
       };
     }
 
-    labelPosition.value = settings.labelPosition;
-    labelSize.value = String(settings.labelSize);
-    frameWidth.value = String(settings.frameWidth);
   }
 
   /* --------------------------------------------------------------- rule editor */
@@ -203,9 +249,6 @@
       });
       initials.onchange = function () { save({ initials: initials.value.trim() }); };
 
-      const emphasize = element('input', { type: 'checkbox', checked: Boolean(rule.emphasize) });
-      emphasize.onchange = function () { save({ emphasize: emphasize.checked }); };
-
       const enabled = element('input', { type: 'checkbox', checked: rule.enabled !== false });
       enabled.onchange = function () { save({ enabled: enabled.checked }); };
 
@@ -231,13 +274,13 @@
         const next = await persist(function () { return updateRule(rule.id, patch); });
         if (!next) return;
         latestState = next;
-        paintPreview();
+        renderAppearance(latestState.rules);
         runTest();
       }
 
       row.append(
         cell(color), cell(mode), cell(pattern), cell(label), cell(initials),
-        cell(emphasize), cell(enabled), cell(null, 'order')
+        cell(enabled), cell(null, 'order')
       );
       row.lastChild.append(up, down, remove);
       validate();
@@ -319,7 +362,7 @@
     latestState = await loadState();
     renderSettings(latestState.settings);
     renderRules(latestState.rules);
-    paintPreview();
+    renderAppearance(latestState.rules);
     runTest();
   }
 
