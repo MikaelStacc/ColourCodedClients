@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Color Coded Clients",
-  "version": "0.2.2",
+  "version": "0.3.1",
   "description": "Color-codes customer environments by URL so you always know which system you are working in.",
   "minimum_chrome_version": "110",
   "permissions": ["storage", "tabs", "tabGroups", "scripting"],
