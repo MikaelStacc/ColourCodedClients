@@ -7,7 +7,7 @@
 
   const {
     loadState, saveState, updateSettings, addRule, updateRule, deleteRule, moveRule,
-    resolveUrl, compilePattern, normalizeRule, clampLabelSize, deriveInitials,
+    resolveUrl, compilePattern, normalizeRule, clampLabelSize, deriveInitials, applyPlacement,
     MATCH_MODES, DEFAULT_MODE, DEFAULT_SETTINGS, LABEL_POSITIONS, MAX_INITIALS
   } = globalThis.CCCRules;
   const { normalizeHex, colorForKey } = globalThis.CCCPalette;
@@ -78,9 +78,13 @@
     }));
   }
 
-  /** The preview uses the real pixel size, so an oversized label looks oversized. */
+  /**
+   * Real pixel size and the same placement function the page uses, so an oversized or
+   * badly placed label looks that way here before it lands on a customer's system.
+   */
   function paintPreview() {
-    previewLabel.dataset.position = labelPosition.value;
+    // Gap 0: the preview frame is drawn as a border, not overlaid like the real one.
+    applyPlacement(previewLabel, labelPosition.value, 0);
     previewLabel.style.fontSize = labelSize.value + 'px';
     const firstRule = latestState && latestState.rules.find(function (rule) {
       return rule.enabled !== false;

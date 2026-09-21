@@ -14,6 +14,7 @@ require('../src/lib/rules.js');
 const {
   resolveUrl, matchingRules, normalizeState, normalizeRule, compilePattern, isValidPattern,
   suggestPattern, clampLabelSize, splitAlternatives, deriveInitials, MAX_INITIALS,
+  labelPlacement, applyPlacement, LABEL_INSET,
   DEFAULT_SETTINGS, LABEL_POSITIONS, LABEL_SIZE_RANGE,
   SCHEMA_VERSION
 } = globalThis.CCCRules;
@@ -282,6 +283,73 @@ test('letters survive export and import unchanged', () => {
 });
 
 /* ------------------------------------------------------------- label appearance */
+
+test('each of the six positions pins the right two edges', () => {
+  const cases = {
+    'top-left': { top: '6px', left: '24px', bottom: 'auto', right: 'auto' },
+    'top-right': { top: '6px', right: '24px', bottom: 'auto', left: 'auto' },
+    'top-center': { top: '6px', left: '50%', bottom: 'auto', right: 'auto' },
+    'bottom-left': { bottom: '6px', left: '24px', top: 'auto', right: 'auto' },
+    'bottom-right': { bottom: '6px', right: '24px', top: 'auto', left: 'auto' },
+    'bottom-center': { bottom: '6px', left: '50%', top: 'auto', right: 'auto' }
+  };
+  for (const [position, expected] of Object.entries(cases)) {
+    const placement = labelPlacement(position, 6);
+    for (const [edge, value] of Object.entries(expected)) {
+      assert.equal(placement[edge], value, position + ' ' + edge);
+    }
+  }
+});
+
+test('every edge is reset on every call, so a position change cannot leave a stale one', () => {
+  // The bug this guards: switching top-right to bottom-left kept the old top and right.
+  for (const position of LABEL_POSITIONS) {
+    const placement = labelPlacement(position, 6);
+    for (const edge of ['top', 'bottom', 'left', 'right']) {
+      assert.ok(edge in placement, position + ' must declare ' + edge);
+    }
+    const pinned = ['top', 'bottom', 'left', 'right']
+      .filter(function (edge) { return placement[edge] !== 'auto'; });
+    assert.equal(pinned.length, 2, position + ' pins exactly two edges');
+  }
+});
+
+test('only the centred positions use a transform', () => {
+  assert.equal(labelPlacement('top-center', 0).transform, 'translateX(-50%)');
+  assert.equal(labelPlacement('bottom-center', 0).transform, 'translateX(-50%)');
+  assert.equal(labelPlacement('top-left', 0).transform, 'none');
+  assert.equal(labelPlacement('bottom-right', 0).transform, 'none');
+});
+
+test('the label clears the frame and rounds towards the page', () => {
+  assert.equal(labelPlacement('top-left', 0).left, LABEL_INSET + 'px');
+  assert.equal(labelPlacement('top-left', 12).top, '12px', 'offset by the frame width');
+  assert.equal(labelPlacement('top-left', 12).left, (12 + LABEL_INSET) + 'px');
+  assert.equal(labelPlacement('top-right', 0).borderRadius, '0 0 6px 6px');
+  assert.equal(labelPlacement('bottom-right', 0).borderRadius, '6px 6px 0 0');
+});
+
+test('an unknown position places the label rather than leaving it unpositioned', () => {
+  const fallback = labelPlacement('middle-nowhere', 6);
+  assert.deepEqual(fallback, labelPlacement(DEFAULT_SETTINGS.labelPosition, 6));
+});
+
+test('applyPlacement writes every property onto a node', () => {
+  const node = { style: {} };
+  applyPlacement(node, 'bottom-center', 4);
+  assert.equal(node.style.bottom, '4px');
+  assert.equal(node.style.top, 'auto');
+  assert.equal(node.style.left, '50%');
+  assert.equal(node.style.right, 'auto');
+  assert.equal(node.style.transform, 'translateX(-50%)');
+
+  // Re-placing the same node must clear what the previous position set.
+  applyPlacement(node, 'top-right', 4);
+  assert.equal(node.style.top, '4px');
+  assert.equal(node.style.bottom, 'auto');
+  assert.equal(node.style.left, 'auto');
+  assert.equal(node.style.transform, 'none');
+});
 
 test('label position falls back when it is not one of the six', () => {
   assert.equal(normalizeState({ settings: { labelPosition: 'middle' } }).settings.labelPosition,

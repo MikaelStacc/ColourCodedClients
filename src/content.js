@@ -1,10 +1,10 @@
 /**
- * Paints the current Business Central environment: a viewport frame, a generated
- * favicon, an optional corner label, and a title prefix.
+ * Paints the page for the matching rule: a viewport frame, an on-page label, a
+ * generated favicon, and a title prefix.
  *
- * The BC client is a single-page app that rewrites its own title and favicon and
- * re-renders large parts of the DOM, so every decoration is re-applied whenever the
- * page changes rather than written once.
+ * Single-page apps rewrite their own title and favicon and re-render large parts of the
+ * DOM, so every decoration is re-applied whenever the page changes rather than written
+ * once. That is the whole reason this exists rather than an off-the-shelf marker.
  */
 (function () {
   'use strict';
@@ -12,7 +12,7 @@
   if (globalThis.__cccContentLoaded) return;
   globalThis.__cccContentLoaded = true;
 
-  const { loadState, resolveUrl, STORAGE_KEY } = globalThis.CCCRules;
+  const { loadState, resolveUrl, applyPlacement, STORAGE_KEY } = globalThis.CCCRules;
 
   const TITLE_PREFIX_PATTERN = /^\[[^\]]{0,60}\]\s/;
   const XML_ESCAPES = {
@@ -48,7 +48,6 @@
     if (!frame) return;
     frame.style.setProperty('--ccc-color', current.color);
     frame.style.setProperty('--ccc-width', current.frameWidth + 'px');
-    frame.dataset.production = String(current.isProduction);
   }
 
   function applyLabel() {
@@ -62,9 +61,9 @@
     label.style.setProperty('--ccc-color', current.color);
     label.style.setProperty('--ccc-text-color', current.textColor);
     label.style.setProperty('--ccc-label-size', state.settings.labelSize + 'px');
-    // Clears the frame, so the two never overlap at any frame width.
-    label.style.setProperty('--ccc-gap', current.frameWidth + 'px');
-    label.dataset.position = state.settings.labelPosition;
+    // Offset by the frame width so the two never overlap, and reset every edge so no
+    // stale offset survives a change of position.
+    applyPlacement(label, state.settings.labelPosition, current.frameWidth);
     if (label.textContent !== current.label) label.textContent = current.label;
   }
 
@@ -169,7 +168,7 @@
     }
     // The script runs on every page now, so an unmatched page stays silent. The popup
     // is where you look to find out why something is not colored.
-    report('coloring as ' + resolved.label + ' ' + resolved.color + ' (' + resolved.source + ')');
+    report('coloring as ' + resolved.label + ' ' + resolved.color);
     current = resolved;
     applyFrame();
     applyLabel();

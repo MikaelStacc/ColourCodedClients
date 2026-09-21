@@ -13,10 +13,10 @@
   transition: border-color 120ms ease-out, border-width 120ms ease-out;
 }
 
+/* Edge offsets, transform and border radius are set from JS by labelPlacement() in
+   rules.js, so the six positions are unit-tested and cannot depend on cascade order. */
 #ccc-label {
   position: fixed;
-  /* Sits just inside the frame, whichever edge it is on. */
-  --ccc-gap: 0px;
   max-width: 60vw;
   padding: .3em .7em .35em;
   background: var(--ccc-color, #000);
@@ -33,9 +33,3 @@
   opacity: .93;
   z-index: 2147483647;
 }
-
-#ccc-label[data-position^="top"] { top: var(--ccc-gap); border-radius: 0 0 6px 6px; }
-#ccc-label[data-position^="bottom"] { bottom: var(--ccc-gap); border-radius: 6px 6px 0 0; }
-#ccc-label[data-position$="left"] { left: calc(var(--ccc-gap) + 18px); }
-#ccc-label[data-position$="right"] { right: calc(var(--ccc-gap) + 18px); }
-#ccc-label[data-position$="center"] { left: 50%; transform: translateX(-50%); }

@@ -37,8 +37,8 @@ body.options { max-width: 940px; margin: 0 auto; padding: 28px 20px 60px; }
 button:disabled { opacity: .5; cursor: default; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
 
-/* Live preview for the on-page label, mirroring the selectors in content.css so the
-   two cannot drift apart. */
+/* Live preview for the on-page label. Its placement is set from JS by the same
+   labelPlacement() the real page uses, so the two cannot drift apart. */
 .preview-box { flex: 1; min-width: 220px; }
 .preview-frame {
   position: relative;
@@ -58,11 +58,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   letter-spacing: .02em;
   white-space: nowrap;
 }
-.preview-label[data-position^="top"] { top: 0; border-radius: 0 0 6px 6px; }
-.preview-label[data-position^="bottom"] { bottom: 0; border-radius: 6px 6px 0 0; }
-.preview-label[data-position$="left"] { left: 14px; }
-.preview-label[data-position$="right"] { right: 14px; }
-.preview-label[data-position$="center"] { left: 50%; transform: translateX(-50%); }
+
 select { height: 32px; }
 td input[type="text"] { min-width: 90px; }
 td.order { white-space: nowrap; }
