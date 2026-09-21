@@ -209,7 +209,14 @@
     // Schemas 1 and 2 carried auto-detected Business Central environments alongside the
     // rules. That layer is gone; only the rule list survives.
     const rules = Array.isArray(state.rules) ? state.rules.map(normalizeRule).filter(Boolean) : [];
-    const settings = Object.assign({}, DEFAULT_SETTINGS, state.settings || {});
+
+    // Copy only keys we still recognise. Merging would otherwise carry dead settings
+    // from removed features forever, eating the 8KB item quota and making the stored
+    // state unreadable when something needs diagnosing.
+    const merged = Object.assign({}, DEFAULT_SETTINGS, state.settings || {});
+    const settings = {};
+    for (const key of Object.keys(DEFAULT_SETTINGS)) settings[key] = merged[key];
+
     if (!LABEL_POSITIONS.includes(settings.labelPosition)) {
       settings.labelPosition = DEFAULT_SETTINGS.labelPosition;
     }

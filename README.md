@@ -120,7 +120,7 @@ src/popup.*            Edit the current page's rule, re-enable one, or add one
 src/options.*          Rule list, URL tester, label controls, export/import
 tools/make-icons.ps1   Regenerates icons/*.png
 tools/package.ps1      Builds the Web Store zip
-tests/rules.test.js    35 tests over matching, resolution and settings
+tests/rules.test.js    44 tests over matching, resolution and settings
 ```
 
 The `src/lib/*.js` files are plain scripts that attach to `globalThis`, so the same file

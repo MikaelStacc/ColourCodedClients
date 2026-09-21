@@ -213,6 +213,26 @@ test('older schemas drop their auto-detected environments', () => {
   assert.equal(fromV2.auto, undefined);
 });
 
+test('settings from removed features are pruned rather than carried forever', () => {
+  // Taken from a real stored state: keys left behind by the deleted BC layer.
+  const state = normalizeState({
+    settings: {
+      autoDetectBc: false, autoAssign: false, emphasizeProduction: false,
+      showCornerLabel: true, labelPosition: 'top-center', labelSize: 48
+    },
+    rules: []
+  });
+  for (const dead of ['autoDetectBc', 'autoAssign', 'emphasizeProduction', 'showCornerLabel']) {
+    assert.ok(!(dead in state.settings), dead + ' should be dropped');
+  }
+  assert.equal(state.settings.labelPosition, 'top-center', 'live settings survive');
+  assert.equal(state.settings.labelSize, 48);
+  assert.deepEqual(
+    Object.keys(state.settings).sort(), Object.keys(DEFAULT_SETTINGS).sort(),
+    'exactly the recognised keys, no more and no less'
+  );
+});
+
 test('normalizeState fills defaults and drops unusable rules', () => {
   const state = normalizeState({ rules: [{ pattern: '' }, null, { pattern: 'ok' }] });
   assert.equal(state.rules.length, 1);
