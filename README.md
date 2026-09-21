@@ -76,16 +76,64 @@ the popup previews them live.
 
 ## Install
 
+Not on the Chrome Web Store, so Chrome loads it straight from a folder on your disk.
+
+### 1. Get the files onto your machine
+
+Either clone it:
+
+```
+git clone https://github.com/MikaelStacc/ColourCodedClients.git
+```
+
+or, without git: open the repo, click the green **Code** button → **Download ZIP**, then
+extract it.
+
+**Put the folder somewhere permanent** — `C:\Tools\ColourCodedClients` or alongside your
+other repos. Chrome does not copy the files in. It reads them from this folder every time
+it starts, so moving, renaming or deleting it breaks the extension.
+
+### 2. Find the folder to point Chrome at
+
+Chrome needs **the folder that directly contains `manifest.json`**:
+
+```
+ColourCodedClients/        <-- point Load unpacked at this folder
+  manifest.json            <-- it must be directly inside it
+  icons/
+  src/
+  tests/
+```
+
+A downloaded ZIP usually extracts to `ColourCodedClients-main`, and some tools nest it
+one level deeper (`ColourCodedClients-main\ColourCodedClients-main\`). Open the folder
+and check you can see `manifest.json` before continuing. Picking the wrong level gives
+*"Manifest file is missing or unreadable"*.
+
+### 3. Load it
+
 1. Open `chrome://extensions`
-2. Turn on **Developer mode**
-3. **Load unpacked** → select this folder
-4. **Reload any tabs that were already open** — content scripts only inject into pages
+2. Turn on **Developer mode** (top right)
+3. Click **Load unpacked** and select the folder from step 2
+4. Chrome may warn that it can "read and change all your data on all websites" — that is
+   the `<all_urls>` permission, which a rule needs because a rule can name any URL. The
+   content script only reads `location.href` and adds its own elements; it sends nothing
+   anywhere, and the extension makes no network requests at all.
+5. **Reload any tabs that were already open** — content scripts only inject into pages
    loaded after the extension is
 
-That last step is the usual reason nothing appears on a first install. The popup detects
-it and offers a reload button rather than leaving you guessing. After *editing* the
-code, see Develop below: the extension has to be reloaded too, and that is a separate
-step from reloading the page.
+Step 5 is the usual reason nothing appears on a first install. The popup detects it and
+offers a reload button rather than leaving you guessing.
+
+The options heading and popup footer show the version, so you can confirm Chrome picked
+up the copy you expect.
+
+### Updating later
+
+`git pull` in the folder, or download the ZIP again and replace the folder's contents in
+place — keeping the same path, so Chrome's existing entry keeps working. Then press the
+**↻ reload icon on the extension's card**; see Develop below, since that is a separate
+step from reloading a page.
 
 ## Use
 
