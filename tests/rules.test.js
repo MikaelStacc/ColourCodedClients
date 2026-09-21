@@ -252,28 +252,37 @@ test('favicon letters derive from the label when the rule sets none', () => {
   assert.equal(deriveInitials(''), '?', 'never empty, or the favicon is a blank square');
 });
 
-test('a rule can override the favicon letters', () => {
+test('a rule can set its own favicon letters, including three', () => {
   const state = stateWith([
     { pattern: 'a.com', label: 'Acme Bank', initials: 'ACM', color: '#123456' }
   ]);
-  const resolved = resolveUrl(state, 'https://a.com');
-  assert.equal(resolved.initials, 'ACM');
-  assert.equal(resolved.customInitials, true);
+  assert.equal(resolveUrl(state, 'https://a.com').initials, 'ACM');
 });
 
-test('clearing the letters falls back to the label', () => {
-  const state = stateWith([
-    { pattern: 'b.com', label: 'Brage Systems', initials: '', color: '#123456' }
-  ]);
-  const resolved = resolveUrl(state, 'https://b.com');
-  assert.equal(resolved.initials, 'BS');
-  assert.equal(resolved.customInitials, false);
+test('letters are independent of the label once set', () => {
+  // Renaming a rule must not silently change what is drawn in the tab strip.
+  const original = normalizeRule({ pattern: 'a.com', label: 'Acme Bank', initials: 'ACM' });
+  const renamed = normalizeRule(Object.assign({}, original, { label: 'Totally Different' }));
+  assert.equal(renamed.initials, 'ACM');
+});
+
+test('clearing the letters re-seeds them from the label, once', () => {
+  const seeded = normalizeRule({ pattern: 'b.com', label: 'Brage Systems', initials: '' });
+  assert.equal(seeded.initials, 'BS');
+  // And having been seeded, they no longer track the label.
+  const renamed = normalizeRule(Object.assign({}, seeded, { label: 'Nordic Credit' }));
+  assert.equal(renamed.initials, 'BS');
+});
+
+test('a new rule is stored with concrete letters rather than deriving them later', () => {
+  assert.equal(normalizeRule({ pattern: 'core.leabank.no' }).initials, 'CL');
+  assert.equal(normalizeRule({ pattern: 'x', label: 'Acme Bank PROD' }).initials, 'AB');
 });
 
 test('letters are trimmed to what fits a 16px favicon', () => {
   assert.equal(normalizeRule({ pattern: 'x', initials: 'TOOLONG' }).initials, 'TOO');
   assert.equal(normalizeRule({ pattern: 'x', initials: '  AB  ' }).initials, 'AB');
-  assert.equal(normalizeRule({ pattern: 'x' }).initials, '', 'absent means derive');
+  assert.equal(normalizeRule({ pattern: 'x' }).initials, 'X', 'absent is seeded, not left blank');
   assert.equal(MAX_INITIALS, 3);
 });
 

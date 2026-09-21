@@ -223,7 +223,12 @@
       applied: Boolean(current),
       label: current ? current.label : '',
       color: current ? current.color : '',
-      source: current ? current.source : ''
+      // Reported separately from the settings so the popup can tell "switched off"
+      // apart from "switched on but the element never made it into the page".
+      labelShown: Boolean(document.getElementById('ccc-label')),
+      showLabel: Boolean(state && state.settings.showLabel),
+      labelPosition: state ? state.settings.labelPosition : '',
+      labelSize: state ? state.settings.labelSize : 0
     });
     return false;
   });

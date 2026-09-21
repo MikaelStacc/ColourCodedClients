@@ -193,8 +193,11 @@
       pattern,
       mode,
       label: String(rule.label || pattern),
-      // Empty means "derive from the label", so clearing the field restores that.
-      initials: String(rule.initials || '').trim().slice(0, MAX_INITIALS),
+      // Stored concretely rather than derived at read time, so the favicon letters are
+      // independent of the label: renaming a rule never silently changes its letters.
+      // Clearing the field re-seeds them from the label once, as a reset.
+      initials: String(rule.initials || '').trim().slice(0, MAX_INITIALS) ||
+        deriveInitials(rule.label || pattern),
       color: root.CCCPalette.normalizeHex(rule.color) || root.CCCPalette.colorForKey(pattern),
       enabled: rule.enabled !== false,
       emphasize: Boolean(rule.emphasize)
@@ -290,7 +293,6 @@
       key: rule.id,
       label,
       initials: rule.initials || deriveInitials(label),
-      customInitials: Boolean(rule.initials),
       pattern: rule.pattern,
       mode: rule.mode,
       color,

@@ -15,7 +15,7 @@
 
   const {
     loadState, resolveUrl, matchingRules, suggestPattern, addRule, updateRule,
-    compilePattern, splitAlternatives, deriveInitials,
+    compilePattern, splitAlternatives, deriveInitials, updateSettings,
     MATCH_MODES, DEFAULT_MODE, ALTERNATION, MAX_INITIALS
   } = globalThis.CCCRules;
   const { PALETTE, normalizeHex, colorForKey, readableTextOn } = globalThis.CCCPalette;
@@ -88,26 +88,43 @@
     return node;
   }
 
-  /** The banner that answers "is this page actually colored right now?" */
+  /**
+   * Banners answering "what is this page actually showing right now?", from the content
+   * script rather than inferred from the rules. Returns a list: the on-page label can be
+   * missing for its own reason while everything else is working.
+   */
   function liveBanner(tab, live, resolved) {
+    const reload = function () { chrome.tabs.reload(tab.id); window.close(); };
+
     if (!live) {
-      return banner('warn',
+      return [banner('warn',
         'This tab was open before the extension loaded, so nothing is applied yet.',
-        'Reload page',
-        function () { chrome.tabs.reload(tab.id); window.close(); });
+        'Reload page', reload)];
     }
+
+    const banners = [];
     if (live.applied) {
-      return banner('ok', 'Colored on this page as "' + live.label + '".');
+      banners.push(banner('ok', 'Colored on this page as "' + live.label + '".'));
+      if (!live.labelShown) {
+        banners.push(live.showLabel
+          ? banner('bad', 'The on-page label should be showing but is not in the page.',
+            'Reload page', reload)
+          : banner('warn', 'The on-page label is switched off.',
+            'Switch it on', async function () {
+              await updateSettings({ showLabel: true });
+              await wait(400);
+              render();
+            }));
+      }
+    } else if (resolved && !resolved.active) {
+      banners.push(banner('warn', 'A rule matches, but coloring is switched off for it.'));
+    } else if (resolved) {
+      banners.push(banner('bad', 'A rule matches but the page is not painted. Try reloading.',
+        'Reload page', reload));
+    } else {
+      banners.push(banner('warn', 'No rule matches this page yet.'));
     }
-    if (resolved && !resolved.active) {
-      return banner('warn', 'A rule matches, but coloring is switched off for it.');
-    }
-    if (resolved) {
-      return banner('bad', 'A rule matches but the page is not painted. Try reloading.',
-        'Reload page',
-        function () { chrome.tabs.reload(tab.id); window.close(); });
-    }
-    return banner('warn', 'No rule matches this page yet.');
+    return banners;
   }
 
   /** Palette grid wired to a color input; returns a repaint function. */
@@ -154,7 +171,7 @@
 
   function renderMatched(tab, resolved, live) {
     app.replaceChildren();
-    app.append(liveBanner(tab, live, resolved));
+    for (const node of liveBanner(tab, live, resolved)) app.append(node);
 
     const swatch = element('div', { className: 'swatch' });
     const title = element('div', { className: 'env', textContent: resolved.label });
@@ -170,7 +187,7 @@
     const labelInput = element('input', { type: 'text', value: resolved.label, autocomplete: 'off' });
     const initialsInput = element('input', {
       type: 'text',
-      value: resolved.customInitials ? resolved.initials : '',
+      value: resolved.initials,
       placeholder: deriveInitials(resolved.label),
       maxLength: MAX_INITIALS,
       autocomplete: 'off'
@@ -181,7 +198,7 @@
     });
 
     app.append(field('Label', labelInput));
-    app.append(field('Favicon letters — blank follows the label', initialsInput));
+    app.append(field('Favicon letters (up to 3) — blank resets from the label', initialsInput));
     const palette = buildPalette(colorInput, function () { paint(); save(); });
     app.append(palette.grid, field('Custom color', colorInput));
 
@@ -238,7 +255,7 @@
    */
   function renderDisabled(tab, rule, live) {
     app.replaceChildren();
-    app.append(liveBanner(tab, live, null));
+    for (const node of liveBanner(tab, live, null)) app.append(node);
 
     const swatch = element('div', { className: 'swatch' });
     swatch.style.background = rule.color;
@@ -271,7 +288,7 @@
 
   function renderAddForm(tab, live) {
     app.replaceChildren();
-    app.append(liveBanner(tab, live, null));
+    for (const node of liveBanner(tab, live, null)) app.append(node);
 
     let host = tab.url;
     let path = '';
@@ -313,7 +330,7 @@
     const verdict = element('div', { className: 'banner', style: 'margin:-2px 0 12px' });
     app.append(verdict);
     app.append(field('Label', labelInput));
-    app.append(field('Favicon letters — blank follows the label', initialsInput));
+    app.append(field('Favicon letters (up to 3) — blank resets from the label', initialsInput));
     const palette = buildPalette(colorInput, paint);
     app.append(palette.grid, field('Custom color', colorInput));
 

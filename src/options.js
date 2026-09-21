@@ -177,7 +177,7 @@
         value: rule.initials || '',
         placeholder: deriveInitials(rule.label),
         maxLength: MAX_INITIALS,
-        title: 'Favicon and badge letters. Blank follows the label.'
+        title: 'Favicon and badge letters, up to 3. Blank resets from the label.'
       });
       initials.onchange = function () { save({ initials: initials.value.trim() }); };
 
