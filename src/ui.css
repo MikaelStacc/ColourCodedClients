@@ -66,6 +66,7 @@ td.order button { padding: 0 5px; line-height: 1.2; }
 .rule-invalid input[type="text"] { border-color: var(--danger); }
 
 h1 { font-size: 17px; margin: 0 0 4px; }
+.version { font-size: 11px; font-weight: 400; color: var(--text-muted); }
 h2 { font-size: 13px; margin: 24px 0 8px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
 p.hint { color: var(--text-muted); margin: 0 0 14px; }
 

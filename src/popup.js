@@ -96,9 +96,15 @@
   function footer(leading) {
     const optionsButton = element('button', { className: 'link', textContent: 'All rules' });
     optionsButton.addEventListener('click', function () { chrome.runtime.openOptionsPage(); });
+    // Stamped from the manifest: a stale, un-reloaded copy of the extension shows an
+    // old number here instead of looking like a setting that refuses to save.
+    const version = element('span', {
+      className: 'version',
+      textContent: 'v' + chrome.runtime.getManifest().version
+    });
     const row = element('div', { className: 'row' });
     for (const node of leading || []) row.append(node);
-    row.append(element('span', { className: 'grow' }), optionsButton);
+    row.append(element('span', { className: 'grow' }), version, optionsButton);
     return row;
   }
 
