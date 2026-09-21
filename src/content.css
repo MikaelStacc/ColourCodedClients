@@ -1,0 +1,41 @@
+/* Injected into every page. Everything here is scoped to our own ids and must never
+   intercept input, so the page underneath behaves normally. */
+
+#ccc-frame {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  border-style: solid;
+  border-color: var(--ccc-color, transparent);
+  border-width: var(--ccc-width, 0px);
+  pointer-events: none;
+  z-index: 2147483647;
+  transition: border-color 120ms ease-out, border-width 120ms ease-out;
+}
+
+#ccc-label {
+  position: fixed;
+  /* Sits just inside the frame, whichever edge it is on. */
+  --ccc-gap: 0px;
+  max-width: 60vw;
+  padding: .3em .7em .35em;
+  background: var(--ccc-color, #000);
+  color: var(--ccc-text-color, #fff);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: var(--ccc-label-size, 12px);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: .93;
+  z-index: 2147483647;
+}
+
+#ccc-label[data-position^="top"] { top: var(--ccc-gap); border-radius: 0 0 6px 6px; }
+#ccc-label[data-position^="bottom"] { bottom: var(--ccc-gap); border-radius: 6px 6px 0 0; }
+#ccc-label[data-position$="left"] { left: calc(var(--ccc-gap) + 18px); }
+#ccc-label[data-position$="right"] { right: calc(var(--ccc-gap) + 18px); }
+#ccc-label[data-position$="center"] { left: 50%; transform: translateX(-50%); }

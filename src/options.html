@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Color Coded Clients — Settings</title>
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body class="options">
+  <h1>Color Coded Clients</h1>
+  <p class="hint">Rules are checked from the top down and the first match wins. A page no
+    rule matches is left alone. One rule can cover several sites by separating patterns
+    with <code>||</code>, for example
+    <code>*core.brage.no*||*core.leabank.no*</code>.</p>
+
+  <h2>URL rules</h2>
+  <table id="rules">
+    <thead>
+      <tr>
+        <th style="width:44px">Color</th>
+        <th style="width:150px">Match when</th>
+        <th>Pattern</th>
+        <th style="width:180px">Label</th>
+        <th style="width:44px" title="Extra thick frame">Bold</th>
+        <th style="width:38px">On</th>
+        <th style="width:96px"></th>
+      </tr>
+    </thead>
+    <tbody id="rulesBody"></tbody>
+  </table>
+  <p class="empty" id="rulesEmpty" hidden>No rules yet. Open a site and click the toolbar icon
+    to add one from the page you are on.</p>
+
+  <div class="row" style="margin-top:10px">
+    <button class="action" id="addRule">Add empty rule</button>
+  </div>
+
+  <h2>Test a URL</h2>
+  <div class="row">
+    <input type="text" id="testUrl" class="grow" spellcheck="false"
+      placeholder="https://example.com/some/path">
+  </div>
+  <p class="status" id="testResult"></p>
+
+  <h2>On-page label</h2>
+  <div class="toggle">
+    <input type="checkbox" id="showLabel">
+    <label for="showLabel">Show the label on the page</label>
+  </div>
+  <div class="row" style="align-items:flex-start; gap:18px; margin-bottom:6px">
+    <label class="field" style="width:190px"><span>Position</span>
+      <select id="labelPosition"></select></label>
+    <label class="field" style="width:190px"><span>Size (px)</span>
+      <input type="range" id="labelSize" min="9" max="48" step="1"></label>
+    <div class="preview-box">
+      <div class="preview-frame" id="previewFrame">
+        <span class="preview-label" id="previewLabel">Customer A</span>
+      </div>
+    </div>
+  </div>
+
+  <h2>Other signals</h2>
+  <div class="toggle">
+    <input type="checkbox" id="enabled">
+    <label for="enabled">Extension on</label>
+  </div>
+  <div class="toggle">
+    <input type="checkbox" id="showFavicon">
+    <label for="showFavicon">Colored favicon <span class="desc">— identifies the tab in the tab strip</span></label>
+  </div>
+  <div class="toggle">
+    <input type="checkbox" id="showTitlePrefix">
+    <label for="showTitlePrefix">Label in the tab title <span class="desc">— also shows in the taskbar and Alt+Tab</span></label>
+  </div>
+  <div class="toggle">
+    <input type="checkbox" id="showBadge">
+    <label for="showBadge">Badge on the toolbar icon</label>
+  </div>
+  <div class="toggle">
+    <input type="checkbox" id="useTabGroups">
+    <label for="useTabGroups">Group tabs by label
+      <span class="desc">— moves tabs into Chrome tab groups, snapped to the nearest of Chrome's 9 group colors</span></label>
+  </div>
+  <label class="field" style="max-width:220px"><span>Frame width (px)</span>
+    <input type="text" id="frameWidth" inputmode="numeric"></label>
+
+  <h2>Share with the team</h2>
+  <p class="hint">Export and paste into a colleague's settings so everyone sees the same
+    color for the same customer.</p>
+  <div class="row" style="margin-bottom:8px">
+    <button class="action" id="export">Export</button>
+    <button class="action" id="import">Import (merge)</button>
+    <span class="status" id="status"></span>
+  </div>
+  <textarea id="transfer" spellcheck="false" placeholder="JSON appears here on export, or paste it here and press Import"></textarea>
+
+  <script src="lib/palette.js"></script>
+  <script src="lib/rules.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

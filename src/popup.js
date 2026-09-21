@@ -1,0 +1,400 @@
+/**
+ * Popup, in two states:
+ *
+ *   matched  - the page is already colored. Rename and recolor it here.
+ *   no match - offer a rule for this tab, with the pattern pre-filled from the URL and
+ *              a live verdict showing whether it matches as you edit it.
+ *
+ * Both states open with a banner reporting what the page is ACTUALLY showing, obtained
+ * by pinging the content script rather than inferred from the rules. A tab opened
+ * before the extension loaded has no content script and stays uncolored no matter how
+ * correct the rule is, and that is otherwise indistinguishable from a broken pattern.
+ */
+(function () {
+  'use strict';
+
+  const {
+    loadState, resolveUrl, matchingRules, suggestPattern, addRule, updateRule,
+    compilePattern, splitAlternatives, MATCH_MODES, DEFAULT_MODE, ALTERNATION
+  } = globalThis.CCCRules;
+  const { PALETTE, normalizeHex, colorForKey, readableTextOn } = globalThis.CCCPalette;
+
+  const app = document.getElementById('app');
+
+  const MODE_LABELS = {
+    contains: 'URL contains',
+    wildcard: 'Wildcard (*)',
+    regex: 'Regular expression'
+  };
+
+  /* ----------------------------------------------------------------- utilities */
+
+  function element(tag, props, children) {
+    const node = Object.assign(document.createElement(tag), props || {});
+    for (const child of children || []) node.append(child);
+    return node;
+  }
+
+  function field(labelText, control) {
+    const wrap = element('label', { className: 'field' });
+    wrap.append(element('span', { textContent: labelText }), control);
+    return wrap;
+  }
+
+  function debounce(fn, delay) {
+    let timer = null;
+    return function () {
+      clearTimeout(timer);
+      timer = setTimeout(fn, delay);
+    };
+  }
+
+  function wait(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  /** @returns {{alive, applied, label, color, source} | null} null = no content script. */
+  async function pingTab(tabId) {
+    try {
+      return await chrome.tabs.sendMessage(tabId, { type: 'ccc-ping' });
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function banner(kind, text, actionLabel, onAction) {
+    const node = element('div', { className: 'banner ' + kind });
+    node.append(element('span', { className: 'grow', textContent: text }));
+    if (actionLabel) {
+      const button = element('button', { className: 'link', textContent: actionLabel });
+      button.addEventListener('click', onAction);
+      node.append(button);
+    }
+    return node;
+  }
+
+  /** The banner that answers "is this page actually colored right now?" */
+  function liveBanner(tab, live, resolved) {
+    if (!live) {
+      return banner('warn',
+        'This tab was open before the extension loaded, so nothing is applied yet.',
+        'Reload page',
+        function () { chrome.tabs.reload(tab.id); window.close(); });
+    }
+    if (live.applied) {
+      return banner('ok', 'Colored on this page as "' + live.label + '".');
+    }
+    if (resolved && !resolved.active) {
+      return banner('warn', 'A rule matches, but coloring is switched off for it.');
+    }
+    if (resolved) {
+      return banner('bad', 'A rule matches but the page is not painted. Try reloading.',
+        'Reload page',
+        function () { chrome.tabs.reload(tab.id); window.close(); });
+    }
+    return banner('warn', 'No rule matches this page yet.');
+  }
+
+  /** Palette grid wired to a color input; returns a repaint function. */
+  function buildPalette(colorInput, onPick) {
+    const grid = element('div', { className: 'palette' });
+    for (const color of PALETTE) {
+      const button = element('button', { type: 'button', title: color });
+      button.dataset.color = color;
+      button.style.background = color;
+      button.addEventListener('click', function () {
+        colorInput.value = color;
+        onPick();
+      });
+      grid.append(button);
+    }
+    function repaint() {
+      const current = normalizeHex(colorInput.value);
+      for (const button of grid.children) {
+        button.setAttribute('aria-pressed', String(button.dataset.color === current));
+      }
+    }
+    return { grid, repaint };
+  }
+
+  /** `*` around each alternative that lacks one; leaves deliberate patterns alone. */
+  function wrapForWildcard(pattern) {
+    return splitAlternatives(pattern)
+      .map(function (part) { return part.includes('*') ? part : '*' + part + '*'; })
+      .join(ALTERNATION);
+  }
+
+  /**
+   * Wildcard patterns are anchored at both ends, so a pattern written for "contains"
+   * stops matching the moment the mode changes. Wrapping it preserves the intent
+   * instead of silently breaking the rule.
+   */
+  function adaptPatternToMode(pattern, mode) {
+    const trimmed = pattern.trim();
+    if (mode !== 'wildcard' || !trimmed) return trimmed;
+    return wrapForWildcard(trimmed);
+  }
+
+  /* ------------------------------------------------------------- matched state */
+
+  function renderMatched(tab, resolved, live) {
+    app.replaceChildren();
+    app.append(liveBanner(tab, live, resolved));
+
+    const swatch = element('div', { className: 'swatch' });
+    const title = element('div', { className: 'env', textContent: resolved.label });
+    const subtitle = element('div', {
+      className: 'tenant',
+      textContent: MODE_LABELS[resolved.mode] + ': ' + resolved.pattern
+    });
+    app.append(element('div', { className: 'identity' }, [
+      swatch,
+      element('div', { className: 'meta grow' }, [title, subtitle])
+    ]));
+
+    const labelInput = element('input', { type: 'text', value: resolved.label, autocomplete: 'off' });
+    const colorInput = element('input', { type: 'color', value: resolved.color });
+    const enabledInput = element('input', {
+      type: 'checkbox', id: 'enabled', checked: resolved.enabled
+    });
+
+    app.append(field('Label', labelInput));
+    const palette = buildPalette(colorInput, function () { paint(); save(); });
+    app.append(palette.grid, field('Custom color', colorInput));
+
+    const toggle = element('div', { className: 'toggle' });
+    toggle.append(enabledInput, element('label', {
+      htmlFor: 'enabled', textContent: 'Rule is on'
+    }));
+    app.append(toggle);
+
+    const status = element('span', { className: 'status' });
+    const optionsButton = element('button', { className: 'link', textContent: 'All rules' });
+    optionsButton.addEventListener('click', function () { chrome.runtime.openOptionsPage(); });
+    app.append(element('div', { className: 'row' }, [
+      optionsButton, element('span', { className: 'grow' }), status
+    ]));
+
+    function paint() {
+      const color = normalizeHex(colorInput.value) || resolved.color;
+      swatch.style.background = color;
+      title.textContent = labelInput.value || resolved.label;
+      palette.repaint();
+    }
+
+    const save = debounce(async function () {
+      await updateRule(resolved.key, {
+        label: labelInput.value.trim() || resolved.label,
+        color: normalizeHex(colorInput.value) || resolved.color,
+        enabled: enabledInput.checked
+      });
+      status.textContent = 'Saved';
+      setTimeout(function () { status.textContent = ''; }, 1400);
+    }, 250);
+
+    labelInput.addEventListener('input', function () { paint(); save(); });
+    colorInput.addEventListener('input', function () { paint(); save(); });
+    // Switching a rule off changes which state the popup belongs in, so re-render.
+    enabledInput.addEventListener('change', async function () {
+      await updateRule(resolved.key, { enabled: enabledInput.checked });
+      await wait(300);
+      render();
+    });
+
+    paint();
+  }
+
+  /* ------------------------------------------------------------ disabled state */
+
+  /**
+   * A rule matches but is switched off. Offering to add another rule here would
+   * quietly create a duplicate, so offer the switch instead.
+   */
+  function renderDisabled(tab, rule, live) {
+    app.replaceChildren();
+    app.append(liveBanner(tab, live, null));
+
+    const swatch = element('div', { className: 'swatch' });
+    swatch.style.background = rule.color;
+    swatch.style.opacity = '.4';
+    app.append(element('div', { className: 'identity' }, [
+      swatch,
+      element('div', { className: 'meta grow' }, [
+        element('div', { className: 'env', textContent: rule.label }),
+        element('div', {
+          className: 'tenant',
+          textContent: MODE_LABELS[rule.mode] + ': ' + rule.pattern
+        })
+      ])
+    ]));
+
+    app.append(banner('warn', 'This page has a rule, but the rule is switched off.'));
+
+    const enableButton = element('button', { className: 'action', textContent: 'Switch it on' });
+    enableButton.addEventListener('click', async function () {
+      enableButton.disabled = true;
+      await updateRule(rule.id, { enabled: true });
+      await wait(400);
+      render();
+    });
+
+    const optionsButton = element('button', { className: 'link', textContent: 'All rules' });
+    optionsButton.addEventListener('click', function () { chrome.runtime.openOptionsPage(); });
+
+    app.append(element('div', { className: 'row' }, [
+      enableButton, element('span', { className: 'grow' }), optionsButton
+    ]));
+  }
+
+  /* ------------------------------------------------------------ no-match state */
+
+  function renderAddForm(tab, live) {
+    app.replaceChildren();
+    app.append(liveBanner(tab, live, null));
+
+    let host = tab.url;
+    let path = '';
+    try {
+      const url = new URL(tab.url);
+      host = url.hostname;
+      path = url.pathname;
+    } catch (error) { /* leave the raw URL in place */ }
+
+    const suggested = suggestPattern(tab.url);
+    const swatch = element('div', { className: 'swatch' });
+    const heading = element('div', { className: 'env', textContent: 'Add a rule' });
+    const subtitle = element('div', { className: 'tenant', textContent: host + path, title: tab.url });
+    app.append(element('div', { className: 'identity' }, [
+      swatch,
+      element('div', { className: 'meta grow' }, [heading, subtitle])
+    ]));
+
+    const modeSelect = element('select');
+    for (const mode of MATCH_MODES) {
+      modeSelect.append(element('option', { value: mode, textContent: MODE_LABELS[mode] }));
+    }
+    modeSelect.value = DEFAULT_MODE;
+
+    const patternInput = element('input', {
+      type: 'text', value: suggested, autocomplete: 'off', spellcheck: false
+    });
+    const labelInput = element('input', { type: 'text', value: host, autocomplete: 'off' });
+    const colorInput = element('input', { type: 'color', value: colorForKey(suggested || host) });
+
+    app.append(field('Match when', modeSelect));
+    app.append(field('Pattern — use || between several', patternInput));
+    const verdict = element('div', { className: 'banner', style: 'margin:-2px 0 12px' });
+    app.append(verdict);
+    app.append(field('Label', labelInput));
+    const palette = buildPalette(colorInput, paint);
+    app.append(palette.grid, field('Custom color', colorInput));
+
+    const emphasizeInput = element('input', { type: 'checkbox', id: 'emphasize' });
+    const emphasizeToggle = element('div', { className: 'toggle' });
+    emphasizeToggle.append(emphasizeInput, element('label', {
+      htmlFor: 'emphasize', textContent: 'Extra thick frame (production)'
+    }));
+    app.append(emphasizeToggle);
+
+    const addButton = element('button', { className: 'action', textContent: 'Add rule' });
+    const status = element('span', { className: 'status' });
+    app.append(element('div', { className: 'row' }, [
+      addButton, element('span', { className: 'grow' }), status
+    ]));
+
+    function paint() {
+      const color = normalizeHex(colorInput.value) || '#777777';
+      swatch.style.background = color;
+      swatch.style.color = readableTextOn(color);
+      palette.repaint();
+    }
+
+    /** Live verdict, so a pattern that matches nothing is obvious before it is saved. */
+    function validate() {
+      const pattern = patternInput.value.trim();
+      verdict.className = 'banner bad';
+      if (!pattern) {
+        verdict.textContent = 'Enter a pattern.';
+        addButton.disabled = true;
+        return false;
+      }
+      const expression = compilePattern(pattern, modeSelect.value);
+      if (!expression) {
+        verdict.textContent = 'Not a valid regular expression.';
+        addButton.disabled = true;
+        return false;
+      }
+      addButton.disabled = false;
+      const hit = expression.test(tab.url);
+      if (hit) {
+        verdict.className = 'banner ok';
+        verdict.textContent = 'Matches this tab.';
+        addButton.textContent = 'Add rule';
+      } else if (modeSelect.value === 'wildcard' && wrapForWildcard(pattern) !== pattern) {
+        verdict.textContent =
+          'Does not match. Wildcard must cover the whole URL — try ' + wrapForWildcard(pattern);
+        addButton.textContent = 'Add anyway';
+      } else {
+        verdict.textContent = 'Does not match this tab.';
+        addButton.textContent = 'Add anyway';
+      }
+      return hit;
+    }
+
+    patternInput.addEventListener('input', validate);
+    colorInput.addEventListener('input', paint);
+    modeSelect.addEventListener('change', function () {
+      patternInput.value = adaptPatternToMode(patternInput.value, modeSelect.value);
+      validate();
+    });
+
+    addButton.addEventListener('click', async function () {
+      const pattern = patternInput.value.trim();
+      if (!pattern) return;
+      addButton.disabled = true;
+      status.textContent = 'Adding…';
+      await addRule({
+        pattern,
+        mode: modeSelect.value,
+        label: labelInput.value.trim() || pattern,
+        color: normalizeHex(colorInput.value),
+        emphasize: emphasizeInput.checked,
+        enabled: true
+      });
+      // Give the content script a moment to receive the storage change and repaint,
+      // then report what actually happened rather than what should have.
+      await wait(400);
+      render();
+    });
+
+    paint();
+    validate();
+  }
+
+  /* --------------------------------------------------------------------- entry */
+
+  async function render() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.url || !/^https?:/i.test(tab.url)) {
+      app.replaceChildren(element('p', {
+        className: 'empty',
+        textContent: 'Chrome pages cannot be colored. Open a normal site first.'
+      }));
+      return;
+    }
+
+    const [state, live] = await Promise.all([loadState(), pingTab(tab.id)]);
+    const resolved = resolveUrl(state, tab.url);
+    if (resolved) {
+      renderMatched(tab, resolved, live);
+      return;
+    }
+    const [disabled] = matchingRules(state, tab.url, true).filter(function (rule) {
+      return rule.enabled === false;
+    });
+    if (disabled) renderDisabled(tab, disabled, live);
+    else renderAddForm(tab, live);
+  }
+
+  render();
+})();
