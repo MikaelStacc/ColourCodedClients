@@ -42,20 +42,26 @@
   </div>
   <p class="status" id="testResult"></p>
 
-  <h2>On-page label</h2>
+  <h2>Frame and label</h2>
   <div class="toggle">
     <input type="checkbox" id="showLabel">
     <label for="showLabel">Show the label on the page</label>
   </div>
   <div class="row" style="align-items:flex-start; gap:18px; margin-bottom:6px">
-    <label class="field" style="width:190px"><span>Position</span>
-      <select id="labelPosition"></select></label>
-    <label class="field" style="width:190px"><span>Size (px)</span>
-      <input type="range" id="labelSize" min="9" max="48" step="1"></label>
+    <div style="width:210px">
+      <label class="field"><span>Frame width <b id="frameWidthValue"></b></span>
+        <input type="range" id="frameWidth" min="1" max="15" step="1"></label>
+      <label class="field"><span>Label size <b id="labelSizeValue"></b></span>
+        <input type="range" id="labelSize" min="9" max="48" step="1"></label>
+      <label class="field"><span>Label position</span>
+        <select id="labelPosition"></select></label>
+    </div>
     <div class="preview-box">
       <div class="preview-frame" id="previewFrame">
         <span class="preview-label" id="previewLabel">Customer A</span>
       </div>
+      <p class="hint" style="margin:6px 0 0">A rule marked <b>Bold</b> draws its frame at
+        twice this width.</p>
     </div>
   </div>
 
@@ -81,9 +87,6 @@
     <label for="useTabGroups">Group tabs by label
       <span class="desc">— moves tabs into Chrome tab groups, snapped to the nearest of Chrome's 9 group colors</span></label>
   </div>
-  <label class="field" style="max-width:220px"><span>Frame width (px)</span>
-    <input type="text" id="frameWidth" inputmode="numeric"></label>
-
   <h2>Diagnostics</h2>
   <p class="hint">Exactly what is stored right now. If a setting you changed is not
     reflected here, the write is not landing.</p>

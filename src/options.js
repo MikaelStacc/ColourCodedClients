@@ -7,8 +7,9 @@
 
   const {
     loadState, saveState, updateSettings, addRule, updateRule, deleteRule, moveRule,
-    resolveUrl, compilePattern, normalizeRule, clampLabelSize, deriveInitials, applyPlacement,
-    MATCH_MODES, DEFAULT_MODE, DEFAULT_SETTINGS, LABEL_POSITIONS, MAX_INITIALS
+    resolveUrl, compilePattern, normalizeRule, clampLabelSize, clampFrameWidth,
+    deriveInitials, applyPlacement,
+    MATCH_MODES, DEFAULT_MODE, LABEL_POSITIONS, MAX_INITIALS
   } = globalThis.CCCRules;
   const { normalizeHex, colorForKey } = globalThis.CCCPalette;
 
@@ -39,6 +40,10 @@
   const testResult = document.getElementById('testResult');
   const labelPosition = document.getElementById('labelPosition');
   const labelSize = document.getElementById('labelSize');
+  const labelSizeValue = document.getElementById('labelSizeValue');
+  const frameWidth = document.getElementById('frameWidth');
+  const frameWidthValue = document.getElementById('frameWidthValue');
+  const previewFrame = document.getElementById('previewFrame');
   const previewLabel = document.getElementById('previewLabel');
   const diagnostics = document.getElementById('diagnostics');
   const diagnosticsStatus = document.getElementById('diagnosticsStatus');
@@ -105,9 +110,15 @@
    * badly placed label looks that way here before it lands on a customer's system.
    */
   function paintPreview() {
-    // Gap 0: the preview frame is drawn as a border, not overlaid like the real one.
+    frameWidthValue.textContent = frameWidth.value + 'px';
+    labelSizeValue.textContent = labelSize.value + 'px';
+
+    // Gap 0: the preview frame is a real border, so its content box already starts
+    // inside it, exactly where the overlaid frame puts the label on a real page.
     applyPlacement(previewLabel, labelPosition.value, 0);
     previewLabel.style.fontSize = labelSize.value + 'px';
+    previewFrame.style.borderWidth = frameWidth.value + 'px';
+
     const firstRule = latestState && latestState.rules.find(function (rule) {
       return rule.enabled !== false;
     });
@@ -115,7 +126,7 @@
       previewLabel.textContent = firstRule.label;
       previewLabel.style.background = firstRule.color;
       previewLabel.style.color = globalThis.CCCPalette.readableTextOn(firstRule.color);
-      document.getElementById('previewFrame').style.borderColor = firstRule.color;
+      previewFrame.style.borderColor = firstRule.color;
     }
   }
 
@@ -128,6 +139,12 @@
     persist(function () { return updateSettings({ labelPosition: labelPosition.value }); });
   };
   labelSize.oninput = function () { paintPreview(); saveLabelSize(); };
+
+  const saveFrameWidth = debounce(function () {
+    persist(function () { return updateSettings({ frameWidth: clampFrameWidth(frameWidth.value) }); });
+  }, 300);
+
+  frameWidth.oninput = function () { paintPreview(); saveFrameWidth(); };
 
   /* ------------------------------------------------------------------ settings */
 
@@ -142,17 +159,7 @@
 
     labelPosition.value = settings.labelPosition;
     labelSize.value = String(settings.labelSize);
-
-    const width = document.getElementById('frameWidth');
-    width.value = String(settings.frameWidth);
-    width.onchange = function () {
-      const parsed = parseInt(width.value, 10);
-      const clamped = Number.isFinite(parsed)
-        ? Math.min(40, Math.max(1, parsed))
-        : DEFAULT_SETTINGS.frameWidth;
-      width.value = String(clamped);
-      persist(function () { return updateSettings({ frameWidth: clamped }); });
-    };
+    frameWidth.value = String(settings.frameWidth);
   }
 
   /* --------------------------------------------------------------- rule editor */

@@ -53,9 +53,10 @@ wrapping. `||` works in *contains* and *wildcard*; *regex* already has `|`.
 | Toolbar icon + badge | Chrome's toolbar, per tab | Any hex |
 | Tab group | Chrome's tab strip, above the page (off by default) | Chrome's 9 group colors |
 
-The label's position (top/bottom × left/centre/right) and size are set in options, with
-a live preview. Tick **Bold** on a rule for a double-width frame on the environments
-where a mistake costs the most.
+Frame width (1–15px), label position (top/bottom × left/centre/right) and label size
+(9–48px) are sliders in options, sharing one live preview that shows the real pixel
+sizes. Tick **Bold** on a rule to draw its frame at twice the width, for the
+environments where a mistake costs the most.
 
 **Favicon letters** are per rule, up to three characters, shared with the toolbar badge.
 Leave the field blank and they follow the label — `core.leabank.no` gives `CL`, `Acme
@@ -120,7 +121,7 @@ src/popup.*            Edit the current page's rule, re-enable one, or add one
 src/options.*          Rule list, URL tester, label controls, export/import
 tools/make-icons.ps1   Regenerates icons/*.png
 tools/package.ps1      Builds the Web Store zip
-tests/rules.test.js    44 tests over matching, resolution and settings
+tests/rules.test.js    46 tests over matching, resolution and settings
 ```
 
 The `src/lib/*.js` files are plain scripts that attach to `globalThis`, so the same file

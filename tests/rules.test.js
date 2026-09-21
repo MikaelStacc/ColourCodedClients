@@ -14,7 +14,7 @@ require('../src/lib/rules.js');
 const {
   resolveUrl, matchingRules, normalizeState, normalizeRule, compilePattern, isValidPattern,
   suggestPattern, clampLabelSize, splitAlternatives, deriveInitials, MAX_INITIALS,
-  labelPlacement, applyPlacement, LABEL_INSET,
+  labelPlacement, applyPlacement, LABEL_INSET, clampFrameWidth, FRAME_WIDTH_RANGE,
   DEFAULT_SETTINGS, LABEL_POSITIONS, LABEL_SIZE_RANGE,
   SCHEMA_VERSION
 } = globalThis.CCCRules;
@@ -396,6 +396,25 @@ test('label size is clamped to a usable range', () => {
   assert.equal(clampLabelSize('nonsense'), DEFAULT_SETTINGS.labelSize);
   assert.equal(normalizeState({ settings: { labelSize: 400 } }).settings.labelSize,
     LABEL_SIZE_RANGE.max);
+});
+
+test('frame width is clamped to the slider range', () => {
+  assert.equal(clampFrameWidth(0), FRAME_WIDTH_RANGE.min);
+  assert.equal(clampFrameWidth(999), FRAME_WIDTH_RANGE.max);
+  assert.equal(clampFrameWidth('8'), 8);
+  assert.equal(clampFrameWidth('nonsense'), DEFAULT_SETTINGS.frameWidth);
+  // A width stored by the old free-text field is pulled into range on load.
+  assert.equal(normalizeState({ settings: { frameWidth: 40 } }).settings.frameWidth,
+    FRAME_WIDTH_RANGE.max);
+  assert.deepEqual(FRAME_WIDTH_RANGE, { min: 1, max: 15 });
+});
+
+test('a bold rule doubles the clamped width, not the raw one', () => {
+  const state = normalizeState({
+    settings: { frameWidth: 40 },
+    rules: [{ pattern: 'a.com', mode: 'contains', label: 'x', color: '#123456', emphasize: true }]
+  });
+  assert.equal(resolveUrl(state, 'https://a.com').frameWidth, FRAME_WIDTH_RANGE.max * 2);
 });
 
 test('the on-page label is on by default', () => {

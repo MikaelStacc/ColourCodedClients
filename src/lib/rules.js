@@ -19,6 +19,7 @@
     'bottom-left', 'bottom-center', 'bottom-right'
   ];
   const LABEL_SIZE_RANGE = { min: 9, max: 48 };
+  const FRAME_WIDTH_RANGE = { min: 1, max: 15 };
 
   const DEFAULT_SETTINGS = {
     enabled: true,
@@ -77,10 +78,18 @@
     }
   }
 
-  function clampLabelSize(value) {
+  function clampToRange(value, range, fallback) {
     const parsed = parseInt(value, 10);
-    if (!Number.isFinite(parsed)) return DEFAULT_SETTINGS.labelSize;
-    return Math.min(LABEL_SIZE_RANGE.max, Math.max(LABEL_SIZE_RANGE.min, parsed));
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(range.max, Math.max(range.min, parsed));
+  }
+
+  function clampLabelSize(value) {
+    return clampToRange(value, LABEL_SIZE_RANGE, DEFAULT_SETTINGS.labelSize);
+  }
+
+  function clampFrameWidth(value) {
+    return clampToRange(value, FRAME_WIDTH_RANGE, DEFAULT_SETTINGS.frameWidth);
   }
 
   /* --------------------------------------------------------------- URL matching */
@@ -221,6 +230,7 @@
       settings.labelPosition = DEFAULT_SETTINGS.labelPosition;
     }
     settings.labelSize = clampLabelSize(settings.labelSize);
+    settings.frameWidth = clampFrameWidth(settings.frameWidth);
     return { version: SCHEMA_VERSION, settings, rules };
   }
 
@@ -339,6 +349,8 @@
     DEFAULT_SETTINGS,
     LABEL_POSITIONS,
     LABEL_SIZE_RANGE,
+    FRAME_WIDTH_RANGE,
+    clampFrameWidth,
     ALTERNATION,
     MAX_INITIALS,
     LABEL_INSET,
