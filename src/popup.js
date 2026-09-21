@@ -134,6 +134,17 @@
     }
 
     const banners = [];
+
+    // A stale content script reports an older version, or none at all if it predates
+    // this field. Everything else below would be describing code that is not running.
+    const mine = chrome.runtime.getManifest().version;
+    if (live.version !== mine) {
+      banners.push(banner('bad',
+        'This tab is running an older copy of the extension (' +
+        (live.version ? 'v' + live.version : 'pre-v0.2.1') + ', not v' + mine +
+        '). Nothing you change will show here until it is reloaded.',
+        'Reload page', reload));
+    }
     if (live.applied) {
       banners.push(banner('ok', 'Colored on this page as "' + live.label + '".'));
       if (!live.labelShown) {

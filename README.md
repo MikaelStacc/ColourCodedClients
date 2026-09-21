@@ -135,19 +135,24 @@ npm test      # node --test tests/*.test.js
 npm run icons # regenerate the PNG icons
 ```
 
-### Reloading after a change — in this order
+### Reloading after a change
 
-Chrome does **not** hot-reload an unpacked extension. It keeps running the code it was
-loaded with until you reload the extension itself, so editing a file changes nothing on
-its own, and reloading the tab only re-injects the *old* content script.
+Chrome does **not** hot-reload an unpacked extension: it keeps running the code it was
+loaded with until you reload the extension itself, and reloading a *tab* only re-injects
+the content script the extension already had. So editing a file does nothing until you
+press the **↻ reload icon on the extension's card** at `chrome://extensions`.
 
-1. `chrome://extensions` → the **↻ reload icon on the extension's card**
-2. Then reload the page
+Open tabs used to need reloading by hand as well. The service worker now re-injects the
+content script into every open tab on install and update, so reloading the extension is
+enough on its own.
 
-Skipping step 1 is the single most common reason a change appears to do nothing. The
-options heading and the popup footer show the version from `manifest.json`: if that
-number is not the one in the file on disk, the extension has not been reloaded and
-nothing else you are looking at is meaningful yet.
+Two version stamps catch a stale copy when something still looks wrong:
+
+- The options heading and popup footer show `manifest.json`'s version. If it is not the
+  version in the file on disk, the extension was never reloaded.
+- The popup compares its version against the content script actually running in the tab
+  and says so in red when they differ, because everything else it reports would then be
+  describing code that is not running.
 
 ## Known limits
 

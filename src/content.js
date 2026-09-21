@@ -9,8 +9,12 @@
 (function () {
   'use strict';
 
-  if (globalThis.__cccContentLoaded) return;
-  globalThis.__cccContentLoaded = true;
+  // Version-stamped rather than a plain boolean: when the service worker re-injects
+  // after an extension reload, a newer script must be able to take over from an older
+  // one that already set this, instead of bailing out and leaving stale code in charge.
+  const MY_VERSION = chrome.runtime.getManifest().version;
+  if (globalThis.__cccContentLoaded === MY_VERSION) return;
+  globalThis.__cccContentLoaded = MY_VERSION;
 
   const { loadState, resolveUrl, applyPlacement, STORAGE_KEY } = globalThis.CCCRules;
 
@@ -224,6 +228,10 @@
     if (!message || message.type !== 'ccc-ping') return false;
     sendResponse({
       alive: true,
+      // The popup compares this against its own. A tab keeps running whatever content
+      // script was injected when it last loaded, so after the extension is reloaded an
+      // old script answers here until the tab itself is reloaded.
+      version: chrome.runtime.getManifest().version,
       applied: Boolean(current),
       label: current ? current.label : '',
       color: current ? current.color : '',

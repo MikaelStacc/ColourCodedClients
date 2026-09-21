@@ -112,5 +112,33 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'sync' && changes[STORAGE_KEY]) refreshAllTabs();
 });
 
-chrome.runtime.onInstalled.addListener(refreshAllTabs);
+/**
+ * Re-injects the content script into tabs that are already open.
+ *
+ * Chrome does not do this itself: reloading the extension leaves every open tab running
+ * whatever content script was injected when that tab last loaded, so a change appears
+ * to do nothing until each tab is reloaded by hand. Running on install and update means
+ * reloading the extension is enough on its own.
+ */
+async function reinjectContentScripts() {
+  const [declared] = chrome.runtime.getManifest().content_scripts;
+  if (!declared) return;
+  const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
+  await Promise.all(tabs.map(async (tab) => {
+    if (!tab.id) return;
+    try {
+      if (declared.css) {
+        await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: declared.css });
+      }
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: declared.js });
+    } catch (error) {
+      // Restricted pages (the web store, PDF viewers) refuse injection. Nothing to do.
+    }
+  }));
+}
+
+chrome.runtime.onInstalled.addListener(async () => {
+  await reinjectContentScripts();
+  refreshAllTabs();
+});
 chrome.runtime.onStartup.addListener(refreshAllTabs);
