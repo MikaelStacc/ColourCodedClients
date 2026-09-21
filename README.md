@@ -81,8 +81,10 @@ the popup previews them live.
 4. **Reload any tabs that were already open** — content scripts only inject into pages
    loaded after the extension is
 
-That last step is the usual reason nothing appears. The popup detects it and offers a
-reload button rather than leaving you guessing.
+That last step is the usual reason nothing appears on a first install. The popup detects
+it and offers a reload button rather than leaving you guessing. After *editing* the
+code, see Develop below: the extension has to be reloaded too, and that is a separate
+step from reloading the page.
 
 ## Use
 
@@ -132,7 +134,19 @@ npm test      # node --test tests/*.test.js
 npm run icons # regenerate the PNG icons
 ```
 
-After editing, press reload on `chrome://extensions`, then reload the page.
+### Reloading after a change — in this order
+
+Chrome does **not** hot-reload an unpacked extension. It keeps running the code it was
+loaded with until you reload the extension itself, so editing a file changes nothing on
+its own, and reloading the tab only re-injects the *old* content script.
+
+1. `chrome://extensions` → the **↻ reload icon on the extension's card**
+2. Then reload the page
+
+Skipping step 1 is the single most common reason a change appears to do nothing. The
+options heading and the popup footer show the version from `manifest.json`: if that
+number is not the one in the file on disk, the extension has not been reloaded and
+nothing else you are looking at is meaningful yet.
 
 ## Known limits
 
