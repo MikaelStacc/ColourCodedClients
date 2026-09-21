@@ -386,6 +386,13 @@
     const palette = buildPalette(colorInput, paint);
     app.append(palette.grid, field('Custom color', colorInput));
 
+    const emphasizeInput = element('input', { type: 'checkbox', id: 'emphasize' });
+    const emphasizeToggle = element('div', { className: 'toggle' });
+    emphasizeToggle.append(emphasizeInput, element('label', {
+      htmlFor: 'emphasize', textContent: 'Extra thick frame (production)'
+    }));
+    app.append(emphasizeToggle);
+
     const addButton = element('button', { className: 'action', textContent: 'Add rule' });
     const status = element('span', { className: 'status' });
     app.append(footer([addButton, status]));
@@ -452,6 +459,7 @@
         label: labelInput.value.trim() || pattern,
         initials: initialsInput.value.trim(),
         color: normalizeHex(colorInput.value),
+        emphasize: emphasizeInput.checked,
         enabled: true
       });
       // Give the content script a moment to receive the storage change and repaint,

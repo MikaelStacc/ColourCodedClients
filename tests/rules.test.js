@@ -15,7 +15,6 @@ const {
   resolveUrl, matchingRules, normalizeState, normalizeRule, compilePattern, isValidPattern,
   suggestPattern, clampLabelSize, splitAlternatives, deriveInitials, MAX_INITIALS,
   labelPlacement, applyPlacement, LABEL_INSET, clampFrameWidth, FRAME_WIDTH_RANGE,
-  DEFAULT_APPEARANCE,
   DEFAULT_SETTINGS, LABEL_POSITIONS, LABEL_SIZE_RANGE,
   SCHEMA_VERSION
 } = globalThis.CCCRules;
@@ -152,51 +151,24 @@ test('matchingRules tolerates a missing URL', () => {
   assert.deepEqual(matchingRules(stateWith([]), '', true), []);
 });
 
-test('each rule carries its own frame and label appearance', () => {
-  // The point of the refactor: two matched sites can look as different from each other
-  // as their consequences are, instead of sharing one global look.
-  const state = stateWith([
-    {
-      pattern: 'prod.example.com', mode: 'contains', label: 'PROD', color: '#123456',
-      frameWidth: 15, showLabel: true, labelPosition: 'top-center', labelSize: 40
-    },
-    {
-      pattern: 'sandbox.example.com', mode: 'contains', label: 'Sandbox', color: '#654321',
-      frameWidth: 2, showLabel: false, labelPosition: 'bottom-left', labelSize: 10
-    }
+test('frame width doubles only for a bold rule', () => {
+  const base = DEFAULT_SETTINGS.frameWidth;
+  const bold = stateWith([
+    { pattern: 'example.com', mode: 'contains', label: 'x', color: '#123456', emphasize: true }
   ]);
-
-  const prod = resolveUrl(state, 'https://prod.example.com/x');
-  assert.equal(prod.frameWidth, 15);
-  assert.equal(prod.showLabel, true);
-  assert.equal(prod.labelPosition, 'top-center');
-  assert.equal(prod.labelSize, 40);
-
-  const sandbox = resolveUrl(state, 'https://sandbox.example.com/x');
-  assert.equal(sandbox.frameWidth, 2);
-  assert.equal(sandbox.showLabel, false);
-  assert.equal(sandbox.labelPosition, 'bottom-left');
-  assert.equal(sandbox.labelSize, 10);
+  const plain = stateWith([
+    { pattern: 'example.com', mode: 'contains', label: 'x', color: '#123456' }
+  ]);
+  assert.equal(resolveUrl(bold, 'https://example.com').frameWidth, base * 2);
+  assert.equal(resolveUrl(plain, 'https://example.com').frameWidth, base);
 });
 
-test('a rule without appearance gets the defaults', () => {
-  const resolved = resolveUrl(
-    stateWith([{ pattern: 'a.com', mode: 'contains', label: 'x', color: '#123456' }]),
-    'https://a.com');
-  assert.equal(resolved.frameWidth, DEFAULT_APPEARANCE.frameWidth);
-  assert.equal(resolved.showLabel, DEFAULT_APPEARANCE.showLabel);
-  assert.equal(resolved.labelPosition, DEFAULT_APPEARANCE.labelPosition);
-  assert.equal(resolved.labelSize, DEFAULT_APPEARANCE.labelSize);
-});
-
-test('per-rule appearance is clamped and validated', () => {
-  const resolved = resolveUrl(stateWith([{
-    pattern: 'a.com', mode: 'contains', label: 'x', color: '#123456',
-    frameWidth: 99, labelSize: 900, labelPosition: 'middle-nowhere'
-  }]), 'https://a.com');
-  assert.equal(resolved.frameWidth, FRAME_WIDTH_RANGE.max);
-  assert.equal(resolved.labelSize, LABEL_SIZE_RANGE.max);
-  assert.equal(resolved.labelPosition, DEFAULT_APPEARANCE.labelPosition);
+test('frame width follows the configured setting', () => {
+  const state = stateWith(
+    [{ pattern: 'example.com', mode: 'contains', label: 'x', color: '#123456' }],
+    { frameWidth: 14 }
+  );
+  assert.equal(resolveUrl(state, 'https://example.com').frameWidth, 14);
 });
 
 test('the global off switch deactivates without losing the match', () => {
@@ -253,6 +225,8 @@ test('settings from removed features are pruned rather than carried forever', ()
   for (const dead of ['autoDetectBc', 'autoAssign', 'emphasizeProduction', 'showCornerLabel']) {
     assert.ok(!(dead in state.settings), dead + ' should be dropped');
   }
+  assert.equal(state.settings.labelPosition, 'top-center', 'live settings survive');
+  assert.equal(state.settings.labelSize, 48);
   assert.deepEqual(
     Object.keys(state.settings).sort(), Object.keys(DEFAULT_SETTINGS).sort(),
     'exactly the recognised keys, no more and no less'
@@ -407,21 +381,20 @@ test('applyPlacement writes every property onto a node', () => {
 });
 
 test('label position falls back when it is not one of the six', () => {
-  const positionOf = function (value) {
-    return normalizeState({ rules: [{ pattern: 'a.com', labelPosition: value }] })
-      .rules[0].labelPosition;
-  };
-  assert.equal(positionOf('middle'), DEFAULT_APPEARANCE.labelPosition);
-  for (const position of LABEL_POSITIONS) assert.equal(positionOf(position), position);
+  assert.equal(normalizeState({ settings: { labelPosition: 'middle' } }).settings.labelPosition,
+    DEFAULT_SETTINGS.labelPosition);
+  for (const position of LABEL_POSITIONS) {
+    assert.equal(normalizeState({ settings: { labelPosition: position } }).settings.labelPosition,
+      position);
+  }
 });
 
 test('label size is clamped to a usable range', () => {
   assert.equal(clampLabelSize(1), LABEL_SIZE_RANGE.min);
   assert.equal(clampLabelSize(999), LABEL_SIZE_RANGE.max);
   assert.equal(clampLabelSize('20'), 20);
-  assert.equal(clampLabelSize('nonsense'), DEFAULT_APPEARANCE.labelSize);
-  assert.equal(
-    normalizeState({ rules: [{ pattern: 'a.com', labelSize: 400 }] }).rules[0].labelSize,
+  assert.equal(clampLabelSize('nonsense'), DEFAULT_SETTINGS.labelSize);
+  assert.equal(normalizeState({ settings: { labelSize: 400 } }).settings.labelSize,
     LABEL_SIZE_RANGE.max);
 });
 
@@ -429,68 +402,24 @@ test('frame width is clamped to the slider range', () => {
   assert.equal(clampFrameWidth(0), FRAME_WIDTH_RANGE.min);
   assert.equal(clampFrameWidth(999), FRAME_WIDTH_RANGE.max);
   assert.equal(clampFrameWidth('8'), 8);
-  assert.equal(clampFrameWidth('nonsense'), DEFAULT_APPEARANCE.frameWidth);
-  assert.equal(
-    normalizeState({ rules: [{ pattern: 'a.com', frameWidth: 40 }] }).rules[0].frameWidth,
+  assert.equal(clampFrameWidth('nonsense'), DEFAULT_SETTINGS.frameWidth);
+  // A width stored by the old free-text field is pulled into range on load.
+  assert.equal(normalizeState({ settings: { frameWidth: 40 } }).settings.frameWidth,
     FRAME_WIDTH_RANGE.max);
   assert.deepEqual(FRAME_WIDTH_RANGE, { min: 1, max: 15 });
 });
 
-test('the on-page label is on by default for a new rule', () => {
-  assert.equal(normalizeState({ rules: [{ pattern: 'a.com' }] }).rules[0].showLabel, true);
-  assert.equal(
-    normalizeState({ rules: [{ pattern: 'a.com', showLabel: false }] }).rules[0].showLabel,
-    false);
-});
-
-test('schema 3 globals and the bold flag migrate onto each rule unchanged', () => {
-  const migrated = normalizeState({
-    settings: {
-      frameWidth: 10, showLabel: true, labelPosition: 'top-center', labelSize: 48,
-      enabled: true, showFavicon: true
-    },
-    rules: [
-      { pattern: '*core.leabank.no*', mode: 'wildcard', label: 'LEA', color: '#C24747',
-        emphasize: true },
-      { pattern: '*web-sso*', mode: 'wildcard', label: 'WS', color: '#986F0B' }
-    ]
-  });
-
-  // The emphasized rule doubled its frame. 10 doubles to 20, past the 15px maximum the
-  // slider allows, so it lands on the maximum rather than a width you could not set.
-  assert.equal(migrated.rules[0].frameWidth, FRAME_WIDTH_RANGE.max);
-  assert.equal(migrated.rules[1].frameWidth, 10);
-  for (const rule of migrated.rules) {
-    assert.equal(rule.labelPosition, 'top-center');
-    assert.equal(rule.labelSize, 48);
-    assert.equal(rule.showLabel, true);
-    assert.ok(!('emphasize' in rule), 'the bold flag is gone');
-  }
-  for (const moved of ['frameWidth', 'showLabel', 'labelPosition', 'labelSize']) {
-    assert.ok(!(moved in migrated.settings), moved + ' is no longer a global setting');
-  }
-  assert.equal(migrated.version, SCHEMA_VERSION);
-});
-
-test('a rule keeps its own appearance through migration', () => {
-  // Only fields the rule never set are filled from the old globals.
+test('a bold rule doubles the clamped width, not the raw one', () => {
   const state = normalizeState({
-    settings: { frameWidth: 10, labelSize: 48, labelPosition: 'top-center', showLabel: true },
-    rules: [{ pattern: 'a.com', labelSize: 20, showLabel: false }]
+    settings: { frameWidth: 40 },
+    rules: [{ pattern: 'a.com', mode: 'contains', label: 'x', color: '#123456', emphasize: true }]
   });
-  assert.equal(state.rules[0].labelSize, 20, 'the rule wins');
-  assert.equal(state.rules[0].showLabel, false, 'the rule wins');
-  assert.equal(state.rules[0].labelPosition, 'top-center', 'inherited, never set');
+  assert.equal(resolveUrl(state, 'https://a.com').frameWidth, FRAME_WIDTH_RANGE.max * 2);
 });
 
-test('migration does not re-run over a rule that already has appearance', () => {
-  const once = normalizeState({
-    settings: { frameWidth: 10 },
-    rules: [{ pattern: 'a.com', label: 'x', color: '#123456', emphasize: true }]
-  });
-  assert.equal(once.rules[0].frameWidth, FRAME_WIDTH_RANGE.max);
-  assert.equal(normalizeState(once).rules[0].frameWidth, FRAME_WIDTH_RANGE.max,
-    'stable, not doubled again');
+test('the on-page label is on by default', () => {
+  assert.equal(normalizeState({}).settings.showLabel, true);
+  assert.equal(normalizeState({ settings: { showLabel: false } }).settings.showLabel, false);
 });
 
 /* ----------------------------------------------------------------------- colors */

@@ -9,7 +9,7 @@
   'use strict';
 
   const STORAGE_KEY = 'colorCodedClients';
-  const SCHEMA_VERSION = 4;
+  const SCHEMA_VERSION = 3;
 
   const MATCH_MODES = ['contains', 'wildcard', 'regex'];
   const DEFAULT_MODE = 'contains';
@@ -21,24 +21,16 @@
   const LABEL_SIZE_RANGE = { min: 9, max: 48 };
   const FRAME_WIDTH_RANGE = { min: 1, max: 15 };
 
-  /** Global, because they are properties of the browser rather than of a site. */
   const DEFAULT_SETTINGS = {
     enabled: true,
+    frameWidth: 6,
+    showLabel: true,
+    labelPosition: 'top-right',
+    labelSize: 12,
     showFavicon: true,
     showTitlePrefix: true,
     showBadge: true,
     useTabGroups: false
-  };
-
-  /**
-   * Per rule, because how loudly a site should announce itself depends on the site.
-   * A customer's production wants a thick frame and a big label; a sandbox does not.
-   */
-  const DEFAULT_APPEARANCE = {
-    frameWidth: 6,
-    showLabel: true,
-    labelPosition: 'top-right',
-    labelSize: 12
   };
 
   /** Distance from the label to the side of the viewport it is not pinned to. */
@@ -57,7 +49,7 @@
   function labelPlacement(position, gap) {
     const parts = LABEL_POSITIONS.includes(position)
       ? position.split('-')
-      : DEFAULT_APPEARANCE.labelPosition.split('-');
+      : DEFAULT_SETTINGS.labelPosition.split('-');
     const vertical = parts[0];
     const horizontal = parts[1];
 
@@ -93,11 +85,11 @@
   }
 
   function clampLabelSize(value) {
-    return clampToRange(value, LABEL_SIZE_RANGE, DEFAULT_APPEARANCE.labelSize);
+    return clampToRange(value, LABEL_SIZE_RANGE, DEFAULT_SETTINGS.labelSize);
   }
 
   function clampFrameWidth(value) {
-    return clampToRange(value, FRAME_WIDTH_RANGE, DEFAULT_APPEARANCE.frameWidth);
+    return clampToRange(value, FRAME_WIDTH_RANGE, DEFAULT_SETTINGS.frameWidth);
   }
 
   /* --------------------------------------------------------------- URL matching */
@@ -205,9 +197,6 @@
     const pattern = String(rule.pattern || '').trim();
     if (!pattern) return null;
     const mode = MATCH_MODES.includes(rule.mode) ? rule.mode : DEFAULT_MODE;
-    const labelPosition = LABEL_POSITIONS.includes(rule.labelPosition)
-      ? rule.labelPosition
-      : DEFAULT_APPEARANCE.labelPosition;
     return {
       id: rule.id || newId(),
       pattern,
@@ -220,62 +209,28 @@
         deriveInitials(rule.label || pattern),
       color: root.CCCPalette.normalizeHex(rule.color) || root.CCCPalette.colorForKey(pattern),
       enabled: rule.enabled !== false,
-      frameWidth: clampFrameWidth(
-        rule.frameWidth === undefined ? DEFAULT_APPEARANCE.frameWidth : rule.frameWidth),
-      showLabel: rule.showLabel === undefined
-        ? DEFAULT_APPEARANCE.showLabel
-        : rule.showLabel !== false,
-      labelPosition,
-      labelSize: clampLabelSize(
-        rule.labelSize === undefined ? DEFAULT_APPEARANCE.labelSize : rule.labelSize)
+      emphasize: Boolean(rule.emphasize)
     };
-  }
-
-  /**
-   * Schema 3 kept frame width, label visibility, position and size as one global set,
-   * plus a per-rule `emphasize` flag that doubled the frame. Both fold into per-rule
-   * appearance: a rule that was emphasized becomes one with twice the frame width, so
-   * nothing changes on screen.
-   */
-  function migrateAppearance(rule, settings) {
-    if (!rule || typeof rule !== 'object') return rule;
-    if (rule.frameWidth !== undefined) return rule;
-
-    const from = settings || {};
-    const base = from.frameWidth === undefined ? DEFAULT_APPEARANCE.frameWidth : from.frameWidth;
-
-    /** The rule's own value wins; the old global only fills what the rule never set. */
-    function inherit(key) {
-      return rule[key] === undefined ? from[key] : rule[key];
-    }
-
-    return Object.assign({}, rule, {
-      // Doubling can exceed the slider range, in which case it clamps: a rule that was
-      // emphasized at a wide global width comes out at the maximum rather than beyond it.
-      frameWidth: clampFrameWidth(rule.emphasize ? base * 2 : base),
-      showLabel: inherit('showLabel'),
-      labelPosition: inherit('labelPosition'),
-      labelSize: inherit('labelSize')
-    });
   }
 
   function normalizeState(raw) {
     const state = raw || {};
     // Schemas 1 and 2 carried auto-detected Business Central environments alongside the
     // rules. That layer is gone; only the rule list survives.
-    const rules = Array.isArray(state.rules)
-      ? state.rules
-        .map(function (rule) { return migrateAppearance(rule, state.settings); })
-        .map(normalizeRule)
-        .filter(Boolean)
-      : [];
+    const rules = Array.isArray(state.rules) ? state.rules.map(normalizeRule).filter(Boolean) : [];
 
     // Copy only keys we still recognise. Merging would otherwise carry dead settings
-    // from removed features forever, eating the 8KB item quota.
+    // from removed features forever, eating the 8KB item quota and making the stored
+    // state unreadable when something needs diagnosing.
     const merged = Object.assign({}, DEFAULT_SETTINGS, state.settings || {});
     const settings = {};
     for (const key of Object.keys(DEFAULT_SETTINGS)) settings[key] = merged[key];
 
+    if (!LABEL_POSITIONS.includes(settings.labelPosition)) {
+      settings.labelPosition = DEFAULT_SETTINGS.labelPosition;
+    }
+    settings.labelSize = clampLabelSize(settings.labelSize);
+    settings.frameWidth = clampFrameWidth(settings.frameWidth);
     return { version: SCHEMA_VERSION, settings, rules };
   }
 
@@ -369,12 +324,8 @@
       mode: rule.mode,
       color,
       textColor: root.CCCPalette.readableTextOn(color),
-      // Appearance travels with the rule, so two matched sites can look as different
-      // from each other as their consequences are.
-      frameWidth: rule.frameWidth,
-      showLabel: rule.showLabel !== false,
-      labelPosition: rule.labelPosition,
-      labelSize: rule.labelSize,
+      frameWidth: rule.emphasize ? settings.frameWidth * 2 : settings.frameWidth,
+      emphasize: Boolean(rule.emphasize),
       enabled: rule.enabled !== false,
       // Resolution still succeeds when coloring is globally off, so the popup can
       // offer the switch that turns it back on.
@@ -398,7 +349,6 @@
     DEFAULT_SETTINGS,
     LABEL_POSITIONS,
     LABEL_SIZE_RANGE,
-    DEFAULT_APPEARANCE,
     FRAME_WIDTH_RANGE,
     clampFrameWidth,
     ALTERNATION,

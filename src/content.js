@@ -55,7 +55,7 @@
   }
 
   function applyLabel() {
-    if (!current.showLabel) {
+    if (!state.settings.showLabel) {
       const existing = document.getElementById('ccc-label');
       if (existing) existing.remove();
       return;
@@ -64,10 +64,10 @@
     if (!label) return;
     label.style.setProperty('--ccc-color', current.color);
     label.style.setProperty('--ccc-text-color', current.textColor);
-    label.style.setProperty('--ccc-label-size', current.labelSize + 'px');
+    label.style.setProperty('--ccc-label-size', state.settings.labelSize + 'px');
     // Offset by the frame width so the two never overlap, and reset every edge so no
     // stale offset survives a change of position.
-    applyPlacement(label, current.labelPosition, current.frameWidth);
+    applyPlacement(label, state.settings.labelPosition, current.frameWidth);
     if (label.textContent !== current.label) label.textContent = current.label;
   }
 
@@ -239,9 +239,9 @@
       // apart from "switched on but the element never made it into the page".
       initials: current ? current.initials : '',
       labelShown: Boolean(document.getElementById('ccc-label')),
-      showLabel: Boolean(current && current.showLabel),
-      labelPosition: current ? current.labelPosition : '',
-      labelSize: current ? current.labelSize : 0
+      showLabel: Boolean(state && state.settings.showLabel),
+      labelPosition: state ? state.settings.labelPosition : '',
+      labelSize: state ? state.settings.labelSize : 0
     });
     return false;
   });

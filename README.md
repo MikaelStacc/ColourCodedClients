@@ -53,17 +53,12 @@ wrapping. `||` works in *contains* and *wildcard*; *regex* already has `|`.
 | Toolbar icon + badge | Chrome's toolbar, per tab | Any hex |
 | Tab group | Chrome's tab strip, above the page (off by default) | Chrome's 9 group colors |
 
-**Frame width, label visibility, position and size belong to each rule**, so a
-customer's production can shout while a sandbox stays quiet. Pick the rule in options,
-then set frame width (1–15px), label size (9–48px) and label position
-(top/bottom × left/centre/right). The preview updates live in that rule's own colour, at
-real pixel sizes.
-
-Only genuinely browser-wide switches stay global: the favicon, the title prefix, the
-toolbar badge and tab grouping. Tick **Bold** on a rule to draw its frame at twice the width, for the
+Frame width (1–15px), label position (top/bottom × left/centre/right) and label size
+(9–48px) are sliders in options, sharing one live preview that shows the real pixel
+sizes. Tick **Bold** on a rule to draw its frame at twice the width, for the
 environments where a mistake costs the most.
 
-**Favicon letters** are also per rule, up to three characters, shared with the toolbar badge.
+**Favicon letters** are per rule, up to three characters, shared with the toolbar badge.
 Leave the field blank and they follow the label — `core.leabank.no` gives `CL`, `Acme
 Bank PROD` gives `AB` — or set them explicitly when the initials collide. The swatch in
 the popup previews them live.
@@ -126,7 +121,7 @@ src/popup.*            Edit the current page's rule, re-enable one, or add one
 src/options.*          Rule list, URL tester, label controls, export/import
 tools/make-icons.ps1   Regenerates icons/*.png
 tools/package.ps1      Builds the Web Store zip
-tests/rules.test.js    49 tests over matching, resolution and appearance
+tests/rules.test.js    46 tests over matching, resolution and settings
 ```
 
 The `src/lib/*.js` files are plain scripts that attach to `globalThis`, so the same file
@@ -170,7 +165,3 @@ Two version stamps catch a stale copy when something still looks wrong:
   can show the previous color briefly.
 - Earlier versions auto-detected Business Central environments. That layer is gone;
   anything it had stored is dropped on first load, and rules are unaffected.
-- Frame and label settings used to be global, with a per-rule **Bold** flag doubling the
-  frame. They migrate onto each rule on first load, a bold rule becoming one with twice
-  the width. Doubling past 15px clamps to 15, so a bold rule on a wide global width comes
-  out slightly thinner than before.
