@@ -180,7 +180,7 @@
 
   /**
    * Derived from the label when the rule does not set its own. Dots split words, because
-   * the add-rule form pre-fills the label with a hostname: core.leabank.no gives CL.
+   * the add-rule form pre-fills the label with a hostname: portal.example.com gives PE.
    */
   function deriveInitials(label) {
     const letters = String(label)

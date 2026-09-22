@@ -62,22 +62,22 @@ test('an empty pattern never compiles', () => {
 });
 
 test('|| covers several sites in one rule', () => {
-  const wildcard = compilePattern('*core.brage.no*||*core.leabank.no*', 'wildcard');
-  assert.ok(wildcard.test('https://core.brage.no/loans/42'));
-  assert.ok(wildcard.test('https://core.leabank.no/'));
-  assert.ok(!wildcard.test('https://core.other.no/'));
+  const wildcard = compilePattern('*portal.example.com*||*admin.example.com*', 'wildcard');
+  assert.ok(wildcard.test('https://portal.example.com/loans/42'));
+  assert.ok(wildcard.test('https://admin.example.com/'));
+  assert.ok(!wildcard.test('https://other.example.net/'));
 
-  const contains = compilePattern('core.brage.no||core.leabank.no', 'contains');
-  assert.ok(contains.test('https://core.brage.no/loans/42'));
-  assert.ok(contains.test('https://core.leabank.no/'));
-  assert.ok(!contains.test('https://core.other.no/'));
+  const contains = compilePattern('portal.example.com||admin.example.com', 'contains');
+  assert.ok(contains.test('https://portal.example.com/loans/42'));
+  assert.ok(contains.test('https://admin.example.com/'));
+  assert.ok(!contains.test('https://other.example.net/'));
 });
 
 test('each || alternative is anchored on its own in wildcard mode', () => {
   // Without per-alternative anchoring, "a" would match any URL containing an "a".
-  const expression = compilePattern('*brage.no*||leabank.no', 'wildcard');
-  assert.ok(expression.test('https://core.brage.no/x'));
-  assert.ok(!expression.test('https://core.leabank.no/x'), 'unwrapped alternative stays anchored');
+  const expression = compilePattern('*portal.example.com*||admin.example.com', 'wildcard');
+  assert.ok(expression.test('https://portal.example.com/x'));
+  assert.ok(!expression.test('https://admin.example.com/x'), 'unwrapped alternative stays anchored');
 });
 
 test('|| alternatives are trimmed and regex characters stay literal', () => {
@@ -95,14 +95,14 @@ test('splitAlternatives drops blanks', () => {
 
 test('a || rule resolves like any other', () => {
   const state = stateWith([{
-    pattern: '*core.brage.no*||*core.leabank.no*',
+    pattern: '*portal.example.com*||*admin.example.com*',
     mode: 'wildcard',
-    label: 'Norwegian banks',
+    label: 'Customer A',
     color: '#498205'
   }]);
-  assert.equal(resolveUrl(state, 'https://core.brage.no/x').label, 'Norwegian banks');
-  assert.equal(resolveUrl(state, 'https://core.leabank.no/y').label, 'Norwegian banks');
-  assert.equal(resolveUrl(state, 'https://core.other.no/z'), null);
+  assert.equal(resolveUrl(state, 'https://portal.example.com/x').label, 'Customer A');
+  assert.equal(resolveUrl(state, 'https://admin.example.com/y').label, 'Customer A');
+  assert.equal(resolveUrl(state, 'https://other.example.net/z'), null);
 });
 
 /* -------------------------------------------------------------------- resolution */
@@ -266,8 +266,8 @@ test('suggestPattern pre-fills something that matches the tab it came from', () 
 
 test('favicon letters derive from the label when the rule sets none', () => {
   assert.equal(deriveInitials('Acme Bank PROD'), 'AB');
-  assert.equal(deriveInitials('Brage'), 'BR');
-  assert.equal(deriveInitials('core.leabank.no'), 'CL');
+  assert.equal(deriveInitials('Portal'), 'PO');
+  assert.equal(deriveInitials('portal.example.com'), 'PE');
   assert.equal(deriveInitials('1'), '1');
   assert.equal(deriveInitials(''), '?', 'never empty, or the favicon is a blank square');
 });
@@ -287,15 +287,15 @@ test('letters are independent of the label once set', () => {
 });
 
 test('clearing the letters re-seeds them from the label, once', () => {
-  const seeded = normalizeRule({ pattern: 'b.com', label: 'Brage Systems', initials: '' });
-  assert.equal(seeded.initials, 'BS');
+  const seeded = normalizeRule({ pattern: 'b.com', label: 'Portal Systems', initials: '' });
+  assert.equal(seeded.initials, 'PS');
   // And having been seeded, they no longer track the label.
   const renamed = normalizeRule(Object.assign({}, seeded, { label: 'Nordic Credit' }));
-  assert.equal(renamed.initials, 'BS');
+  assert.equal(renamed.initials, 'PS');
 });
 
 test('a new rule is stored with concrete letters rather than deriving them later', () => {
-  assert.equal(normalizeRule({ pattern: 'core.leabank.no' }).initials, 'CL');
+  assert.equal(normalizeRule({ pattern: 'portal.example.com' }).initials, 'PE');
   assert.equal(normalizeRule({ pattern: 'x', label: 'Acme Bank PROD' }).initials, 'AB');
 });
 

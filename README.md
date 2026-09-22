@@ -36,7 +36,7 @@ pattern does not match the tab you are on.
 more than one hostname needs one label and one color rather than a duplicate per host:
 
 ```
-*core.brage.no*||*core.leabank.no*
+*portal.example.com*||*admin.example.com*
 ```
 
 Each alternative is matched on its own, so in wildcard mode each one needs its own `*`
@@ -59,7 +59,7 @@ sizes. Tick **Bold** on a rule to draw its frame at twice the width, for the
 environments where a mistake costs the most.
 
 **Favicon letters** are per rule, up to three characters, shared with the toolbar badge.
-Leave the field blank and they follow the label — `core.leabank.no` gives `CL`, `Acme
+Leave the field blank and they follow the label — `portal.example.com` gives `PE`, `Acme
 Bank PROD` gives `AB` — or set them explicitly when the initials collide. The swatch in
 the popup previews them live.
 
