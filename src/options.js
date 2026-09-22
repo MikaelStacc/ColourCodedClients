@@ -7,6 +7,7 @@
 
   const {
     loadState, saveState, updateSettings, addRule, updateRule, deleteRule, moveRule,
+    duplicateRule,
     resolveUrl, compilePattern, normalizeRule, clampLabelSize, clampFrameWidth,
     deriveInitials, applyPlacement,
     MATCH_MODES, DEFAULT_MODE, LABEL_POSITIONS, MAX_INITIALS
@@ -217,6 +218,15 @@
       down.disabled = index === rules.length - 1;
       down.onclick = async function () { await moveRule(rule.id, 1); refresh(); };
 
+      const copy = element('button', {
+        className: 'link', textContent: 'Copy',
+        title: 'Duplicate this rule directly below, ready for a different pattern'
+      });
+      copy.onclick = async function () {
+        await persist(function () { return duplicateRule(rule.id); });
+        refresh();
+      };
+
       const remove = element('button', { className: 'link danger', textContent: 'Remove' });
       remove.onclick = async function () { await deleteRule(rule.id); flash('Removed'); refresh(); };
 
@@ -239,7 +249,7 @@
         cell(color), cell(mode), cell(pattern), cell(label), cell(initials),
         cell(emphasize), cell(enabled), cell(null, 'order')
       );
-      row.lastChild.append(up, down, remove);
+      row.lastChild.append(up, down, copy, remove);
       validate();
       rulesBody.append(row);
     });

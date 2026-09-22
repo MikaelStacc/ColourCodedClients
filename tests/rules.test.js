@@ -15,6 +15,7 @@ const {
   resolveUrl, matchingRules, normalizeState, normalizeRule, compilePattern, isValidPattern,
   suggestPattern, clampLabelSize, splitAlternatives, deriveInitials, MAX_INITIALS,
   labelPlacement, applyPlacement, LABEL_INSET, clampFrameWidth, FRAME_WIDTH_RANGE,
+  withCopiedRule, nextCopyLabel,
   DEFAULT_SETTINGS, LABEL_POSITIONS, LABEL_SIZE_RANGE,
   SCHEMA_VERSION
 } = globalThis.CCCRules;
@@ -191,6 +192,79 @@ test('resolved rules carry what the decorations need', () => {
   assert.equal(resolved.mode, 'wildcard');
   assert.equal(resolved.pattern, '*example.com*');
   assert.ok(resolved.key, 'the rule id, for saving edits back');
+});
+
+/* ------------------------------------------------------------------ copying rules */
+
+function ruleList() {
+  return normalizeState({
+    rules: [
+      { pattern: 'a.example.com', mode: 'contains', label: 'Acme', color: '#123456',
+        initials: 'AC', emphasize: true },
+      { pattern: 'b.example.com', mode: 'contains', label: 'Beta', color: '#654321' }
+    ]
+  }).rules;
+}
+
+test('a copy lands directly after its original', () => {
+  // Order decides which rule paints, so a copy belongs beside what it came from.
+  const rules = ruleList();
+  const copied = withCopiedRule(rules, rules[0].id);
+  assert.equal(copied.length, 3);
+  assert.equal(copied[0].label, 'Acme');
+  assert.equal(copied[1].label, 'Acme copy');
+  assert.equal(copied[2].label, 'Beta');
+});
+
+test('a copy carries everything but the identity', () => {
+  const rules = ruleList();
+  const copy = withCopiedRule(rules, rules[0].id)[1];
+  assert.equal(copy.pattern, 'a.example.com');
+  assert.equal(copy.mode, 'contains');
+  assert.equal(copy.color, '#123456');
+  assert.equal(copy.initials, 'AC');
+  assert.equal(copy.emphasize, true);
+  assert.equal(copy.enabled, true);
+  assert.notEqual(copy.id, rules[0].id, 'a distinct id, or edits would hit both');
+});
+
+test('the original is left untouched', () => {
+  const rules = ruleList();
+  const before = JSON.parse(JSON.stringify(rules));
+  withCopiedRule(rules, rules[0].id);
+  assert.deepEqual(rules, before, 'withCopiedRule does not mutate its input');
+});
+
+test('repeated copies get distinct labels', () => {
+  let rules = ruleList();
+  rules = withCopiedRule(rules, rules[0].id);
+  rules = withCopiedRule(rules, rules[0].id);
+  rules = withCopiedRule(rules, rules[0].id);
+  const labels = rules.map(function (rule) { return rule.label; });
+  assert.deepEqual(new Set(labels).size, labels.length, 'no two rules share a label');
+  assert.ok(labels.includes('Acme copy'));
+  assert.ok(labels.includes('Acme copy 2'));
+});
+
+test('nextCopyLabel skips names already taken', () => {
+  const taken = [{ label: 'Acme' }, { label: 'Acme copy' }, { label: 'Acme copy 2' }];
+  assert.equal(nextCopyLabel('Acme', taken), 'Acme copy 3');
+  assert.equal(nextCopyLabel('Beta', taken), 'Beta copy');
+});
+
+test('copying an unknown id changes nothing', () => {
+  const rules = ruleList();
+  assert.equal(withCopiedRule(rules, 'no-such-id'), rules);
+});
+
+test('until its pattern is edited, a copy is shadowed by the original', () => {
+  // First match wins, so the copy cannot silently take over the site.
+  const rules = ruleList();
+  const state = { settings: DEFAULT_SETTINGS, rules: withCopiedRule(rules, rules[0].id) };
+  assert.equal(resolveUrl(state, 'https://a.example.com/x').label, 'Acme');
+
+  state.rules[1].pattern = 'c.example.com';
+  assert.equal(resolveUrl(state, 'https://c.example.com/x').label, 'Acme copy');
 });
 
 /* ------------------------------------------------------------ state and defaults */

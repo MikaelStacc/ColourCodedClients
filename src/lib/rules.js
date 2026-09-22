@@ -286,6 +286,43 @@
     return state;
   }
 
+  /** "Acme copy", then "Acme copy 2", so a second copy does not collide with the first. */
+  function nextCopyLabel(label, rules) {
+    const taken = new Set(rules.map(function (rule) { return rule.label; }));
+    const base = label + ' copy';
+    if (!taken.has(base)) return base;
+    let n = 2;
+    while (taken.has(base + ' ' + n)) n += 1;
+    return base + ' ' + n;
+  }
+
+  /**
+   * A new rule list with a copy of `id` inserted directly after it.
+   *
+   * Placed next to its original because order decides which rule paints, and a copy is
+   * almost always a variant of its neighbour: same colour and letters, one edited
+   * pattern. Until that pattern is changed the copy is shadowed by the original, which
+   * is the safe way round.
+   */
+  function withCopiedRule(rules, id) {
+    const index = rules.findIndex(function (rule) { return rule.id === id; });
+    if (index === -1) return rules;
+    const copy = normalizeRule(Object.assign({}, rules[index], {
+      id: newId(),
+      label: nextCopyLabel(rules[index].label, rules)
+    }));
+    const next = rules.slice();
+    next.splice(index + 1, 0, copy);
+    return next;
+  }
+
+  async function duplicateRule(id) {
+    const state = await loadState();
+    state.rules = withCopiedRule(state.rules, id);
+    await saveState(state);
+    return state;
+  }
+
   /** Reorder matters: the first matching rule is the one that paints. */
   async function moveRule(id, delta) {
     const state = await loadState();
@@ -373,6 +410,9 @@
     addRule,
     updateRule,
     deleteRule,
+    duplicateRule,
+    withCopiedRule,
+    nextCopyLabel,
     moveRule,
     resolveUrl
   };

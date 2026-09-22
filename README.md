@@ -155,6 +155,12 @@ The options page (right-click the icon → Options) has the full rule list with
 reordering, a URL tester, the label controls, and JSON export/import for sharing one
 scheme across the team.
 
+**Copy** on a rule duplicates it directly below, keeping the colour, letters and
+settings and naming it `<label> copy`. Handy for a customer's second environment or
+second hostname: copy, change the pattern, change the label. Until you change the
+pattern the copy sits below its original and never paints, because the first matching
+rule wins.
+
 
 
 ## Layout
@@ -169,7 +175,7 @@ src/popup.*            Edit the current page's rule, re-enable one, or add one
 src/options.*          Rule list, URL tester, label controls, export/import
 tools/make-icons.ps1   Regenerates icons/*.png
 tools/package.ps1      Builds the Web Store zip
-tests/rules.test.js    46 tests over matching, resolution and settings
+tests/rules.test.js    53 tests over matching, resolution and settings
 ```
 
 The `src/lib/*.js` files are plain scripts that attach to `globalThis`, so the same file
